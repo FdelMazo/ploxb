@@ -45,31 +45,14 @@ class Chunk(object):
             byte = self.bytes[i]
             print(f"{i:04d}", end=" ")
             match byte:
-                case OpCode.OP_RETURN:
-                    print("OP_RETURN")
-                    i += 1
-                case OpCode.OP_NEGATE:
-                    print("OP_NEGATE")
-                    i += 1
-                case OpCode.OP_ADD:
-                    print("OP_ADD")
-                    i += 1
-                case OpCode.OP_SUBTRACT:
-                    print("OP_SUBTRACT")
-                    i += 1
-                case OpCode.OP_MULTIPLY:
-                    print("OP_MULTIPLY")
-                    i += 1
-                case OpCode.OP_DIVIDE:
-                    print("OP_DIVIDE")
-                    i += 1
                 case OpCode.OP_CONSTANT:
                     constant_index = self.bytes[i + 1]
                     constant_value = self.constants[constant_index]
                     print(f"OP_CONSTANT<{constant_value}>")
                     # Hay que saltar el byte de la constante!
                     i += 2
+                # All simple instructions
                 case _:
-                    print(f"UNKNOWN {byte}")
+                    print(OpCode(byte).name)
                     i += 1
         print(f"== CHUNK ==")
