@@ -13,7 +13,10 @@ class VM(object):
         # almacena todos los valores intermedios que se van produciendo
         self.values: list[ValueType] = []
 
-    def push(self, value: float):
+    def peek(self, distance=0):
+        return self.values[-1 - distance] if len(self.values) > distance else None
+
+    def push(self, value: ValueType):
         # Agrega un resultado al tope del stack
         self.values.append(value)
 
@@ -43,23 +46,85 @@ class VM(object):
                     # Salteamos el índice de la constante en el ip
                     self.ip += 1
                 case OpCode.OP_NEGATE:
+                    if not self.is_number(self.peek()):
+                        raise RuntimeError(
+                            f"Operand of OP_NEGATE must be a number, got: `{self.peek()}`"
+                        )
                     value = self.pop()
                     self.push(-value)
                 case OpCode.OP_ADD:
                     b = self.pop()
                     a = self.pop()
+                    if not self.is_number(a, b):
+                        raise RuntimeError(
+                            f"Operands of OP_ADD must be numbers, got: `{a}, {b}`"
+                        )
                     self.push(a + b)
                 case OpCode.OP_SUBTRACT:
                     b = self.pop()
                     a = self.pop()
+                    if not self.is_number(a, b):
+                        raise RuntimeError(
+                            f"Operands of OP_SUBTRACT must be numbers, got: `{a}, {b}`"
+                        )
                     self.push(a - b)
                 case OpCode.OP_MULTIPLY:
                     b = self.pop()
                     a = self.pop()
+                    if not self.is_number(a, b):
+                        raise RuntimeError(
+                            f"Operands of OP_MULTIPLY must be numbers, got: `{a}, {b}`"
+                        )
                     self.push(a * b)
                 case OpCode.OP_DIVIDE:
                     b = self.pop()
                     a = self.pop()
+                    if not self.is_number(a, b):
+                        raise RuntimeError(
+                            f"Operands of OP_DIVIDE must be numbers, got: `{a}, {b}`"
+                        )
                     self.push(a / b)
+                case OpCode.OP_NIL:
+                    self.push(None)
+                case OpCode.OP_TRUE:
+                    self.push(True)
+                case OpCode.OP_FALSE:
+                    self.push(False)
+                case OpCode.OP_NOT:
+                    value = self.pop()
+                    self.push(not self.is_truthy(value))
+                case OpCode.OP_EQUAL:
+                    b = self.pop()
+                    a = self.pop()
+                    self.push(a == b)
+                case OpCode.OP_GREATER:
+                    b = self.pop()
+                    a = self.pop()
+                    if not self.is_number(a, b):
+                        raise RuntimeError(
+                            f"Operands of OP_GREATER must be numbers, got: `{a} - {b}`"
+                        )
+                    self.push(a > b)
+                case OpCode.OP_LESS:
+                    b = self.pop()
+                    a = self.pop()
+                    if not self.is_number(a, b):
+                        raise RuntimeError(
+                            f"Operands of OP_LESS must be numbers, got: `{a} - {b}`"
+                        )
+                    self.push(a < b)
                 case _:
                     raise RuntimeError(f"UNKNOWN {byte}")
+
+    # ---------- Helpers ---------- #
+
+    def is_truthy(self, value):
+        if value is None or value is False:
+            return False
+        return True
+
+    def is_number(self, *values):
+        return all(type(value) is int or type(value) is float for value in values)
+
+    def is_string(self, *values):
+        return all(type(value) is str for value in values)

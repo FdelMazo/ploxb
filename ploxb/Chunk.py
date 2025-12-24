@@ -8,12 +8,19 @@ class OpCode(IntEnum):
     OP_CONSTANT = auto()
     # Todo el resto son operaciones sin operandos.
     # Operan directamente sobre el tope del stack de la máquina virtual.
+    OP_NIL = auto()
+    OP_TRUE = auto()
+    OP_FALSE = auto()
     OP_RETURN = auto()
     OP_NEGATE = auto()
     OP_ADD = auto()
     OP_SUBTRACT = auto()
     OP_MULTIPLY = auto()
     OP_DIVIDE = auto()
+    OP_NOT = auto()
+    OP_EQUAL = auto()
+    OP_GREATER = auto()
+    OP_LESS = auto()
 
 
 class Chunk(object):

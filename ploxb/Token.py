@@ -1,7 +1,7 @@
 from enum import Enum, auto
 from typing import Union
 
-ValueType = Union[float]
+ValueType = Union[float, bool, None]
 
 
 class TokenType(Enum):

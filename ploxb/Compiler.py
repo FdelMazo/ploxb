@@ -39,21 +39,21 @@ PRATT: dict[TokenType, tuple[str | None, str | None, Precedence, Precedence]] = 
     TokenType.SEMICOLON:     (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
     TokenType.NUMBER:        ("number",    None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
     TokenType.STRING:        (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
-    TokenType.TRUE:          (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
-    TokenType.FALSE:         (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
-    TokenType.NIL:           (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
+    TokenType.NIL:           ("literal",   None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
+    TokenType.FALSE:         ("literal",   None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
+    TokenType.TRUE:          ("literal",   None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
     TokenType.MINUS:         ("unary",     "binary",   Precedence.PREC_UNARY, Precedence.PREC_TERM),
     TokenType.PLUS:          (None,        "binary",   Precedence.PREC_NONE,  Precedence.PREC_TERM),
     TokenType.STAR:          (None,        "binary",   Precedence.PREC_NONE,  Precedence.PREC_FACTOR),
     TokenType.SLASH:         (None,        "binary",   Precedence.PREC_NONE,  Precedence.PREC_FACTOR),
-    TokenType.BANG:          (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
-    TokenType.BANG_EQUAL:    (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
+    TokenType.BANG:          ("unary",     None,       Precedence.PREC_UNARY, Precedence.PREC_NONE),
+    TokenType.BANG_EQUAL:    (None,        "binary",   Precedence.PREC_NONE,  Precedence.PREC_EQUALITY),
     TokenType.EQUAL:         (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
-    TokenType.EQUAL_EQUAL:   (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
-    TokenType.GREATER:       (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
-    TokenType.GREATER_EQUAL: (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
-    TokenType.LESS:          (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
-    TokenType.LESS_EQUAL:    (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
+    TokenType.EQUAL_EQUAL:   (None,        "binary",   Precedence.PREC_NONE,  Precedence.PREC_EQUALITY),
+    TokenType.GREATER:       (None,        "binary",   Precedence.PREC_NONE,  Precedence.PREC_COMPARISON),
+    TokenType.GREATER_EQUAL: (None,        "binary",   Precedence.PREC_NONE,  Precedence.PREC_COMPARISON),
+    TokenType.LESS:          (None,        "binary",   Precedence.PREC_NONE,  Precedence.PREC_COMPARISON),
+    TokenType.LESS_EQUAL:    (None,        "binary",   Precedence.PREC_NONE,  Precedence.PREC_COMPARISON),
     TokenType.AND:           (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
     TokenType.OR:            (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
     TokenType.IF:            (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
@@ -161,6 +161,8 @@ class Compiler(object):
         self.parse(rule["prefix_precedence"])
 
         match operator.token_type:
+            case TokenType.BANG:
+                self.emit(OpCode.OP_NOT)
             # El menos es una operación de negación
             case TokenType.MINUS:
                 self.emit(OpCode.OP_NEGATE)
@@ -192,6 +194,21 @@ class Compiler(object):
                 self.emit(OpCode.OP_MULTIPLY)
             case TokenType.SLASH:
                 self.emit(OpCode.OP_DIVIDE)
+            case TokenType.BANG_EQUAL:
+                self.emit(OpCode.OP_EQUAL)
+                self.emit(OpCode.OP_NOT)
+            case TokenType.EQUAL_EQUAL:
+                self.emit(OpCode.OP_EQUAL)
+            case TokenType.GREATER:
+                self.emit(OpCode.OP_GREATER)
+            case TokenType.GREATER_EQUAL:
+                self.emit(OpCode.OP_LESS)
+                self.emit(OpCode.OP_NOT)
+            case TokenType.LESS:
+                self.emit(OpCode.OP_LESS)
+            case TokenType.LESS_EQUAL:
+                self.emit(OpCode.OP_GREATER)
+                self.emit(OpCode.OP_NOT)
             case _:
                 raise SyntaxError(f"Unexpected binary operator: {operator}")
 
@@ -207,6 +224,18 @@ class Compiler(object):
             raise SyntaxError(
                 f"Expected ')' after grouping expression, got `{self._lookahead()}` instead"
             )
+
+    def literal(self):
+        token = self._previous()
+        match token.token_type:
+            case TokenType.NIL:
+                self.emit(OpCode.OP_NIL)
+            case TokenType.FALSE:
+                self.emit(OpCode.OP_FALSE)
+            case TokenType.TRUE:
+                self.emit(OpCode.OP_TRUE)
+            case _:
+                raise SyntaxError(f"Unexpected lietral token: {token}")
 
     # ---------- Helpers ---------- #
 
