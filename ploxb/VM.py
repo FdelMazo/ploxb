@@ -55,9 +55,9 @@ class VM(object):
                 case OpCode.OP_ADD:
                     b = self.pop()
                     a = self.pop()
-                    if not self.is_number(a, b):
+                    if not self.is_number(a, b) and not self.is_string(a, b):
                         raise RuntimeError(
-                            f"Operands of OP_ADD must be numbers, got: `{a}, {b}`"
+                            f"Operands of OP_ADD must be numbers or strings, got: `{a}, {b}`"
                         )
                     self.push(a + b)
                 case OpCode.OP_SUBTRACT:

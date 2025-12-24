@@ -37,8 +37,8 @@ PRATT: dict[TokenType, tuple[str | None, str | None, Precedence, Precedence]] = 
     TokenType.LEFT_BRACE:    (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
     TokenType.RIGHT_BRACE:   (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
     TokenType.SEMICOLON:     (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
-    TokenType.NUMBER:        ("number",    None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
-    TokenType.STRING:        (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
+    TokenType.NUMBER:        ("value",     None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
+    TokenType.STRING:        ("value",     None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
     TokenType.NIL:           ("literal",   None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
     TokenType.FALSE:         ("literal",   None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
     TokenType.TRUE:          ("literal",   None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
@@ -134,15 +134,16 @@ class Compiler(object):
     def expression(self):
         self.parse(Precedence.PREC_ASSIGNMENT)
 
-    # Parsea un número
-    def number(self):
-        # El número ya fue consumido
-        num = self._previous()
-        if num.literal is None:
-            raise SyntaxError(f"Expected a number literal, got `{num}` instead")
+    # Parsea un número o un string
+    def value(self):
+        token = self._previous()
+        if token.literal is None:
+            raise SyntaxError(
+                f"Expected a number or string literal, got `{token}` instead"
+            )
 
         # Agrega los bytes correspondientes a una operación de una constante
-        constant_index = self.chunk.add_constant(num.literal)
+        constant_index = self.chunk.add_constant(token.literal)
         self.emit(OpCode.OP_CONSTANT)
         self.emit(constant_index)
 
