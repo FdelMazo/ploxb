@@ -17,12 +17,13 @@ promptsession: PromptSession[str] = PromptSession(history=FileHistory(history_fi
 
 
 class Ploxb:
-    def run(self, source: str):
+    def run(self, source: str, debug: bool = False):
         scanner = Scanner(source)
         try:
             tokens = scanner.scan()
         except Exception as e:
-            traceback.print_exc()
+            if debug:
+                traceback.print_exc()
             print(f"Scanning Error: {e}")
             return None
 
@@ -30,14 +31,16 @@ class Ploxb:
         try:
             chunk = compiler.compile()
         except Exception as e:
-            traceback.print_exc()
+            if debug:
+                traceback.print_exc()
             print(f"Compilation Error: {e}")
             return None
 
         if not chunk:
             return
 
-        chunk.dis()
+        if debug:
+            chunk.dis()
         vm = VM(chunk)
         try:
             vm.run()
@@ -50,6 +53,7 @@ class Ploxb:
             prog="ploxb",
             description="Lox bytecode compiler in Python",
         )
+        parser.add_argument("--debug", action="store_true", help="Enable debug mode")
         parser.add_argument(
             "file", nargs="?", help="Interpret a file instead of running the REPL"
         )
@@ -59,7 +63,7 @@ class Ploxb:
         if args.file:
             with open(args.file, "r") as file:
                 source = file.read()
-                self.run(source)
+                self.run(source, args.debug)
                 return
 
         while True:
@@ -68,7 +72,7 @@ class Ploxb:
             except (EOFError, KeyboardInterrupt):
                 break
 
-            self.run(source)
+            self.run(source, args.debug)
 
 
 def main():
