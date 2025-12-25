@@ -34,9 +34,12 @@ class VM(object):
             byte = self.chunk.bytes[self.ip]
             self.ip += 1
             match byte:
+                case OpCode.OP_PRINT:
+                    print(self.pop())
+                case OpCode.OP_POP:
+                    self.pop()
                 case OpCode.OP_RETURN:
-                    print(f"RESULT {self.pop()}")
-                    return True
+                    return
                 case OpCode.OP_CONSTANT:
                     constant_index = self.chunk.bytes[self.ip]
                     constant_value = self.chunk.constants[constant_index]

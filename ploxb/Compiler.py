@@ -89,7 +89,8 @@ class Compiler(object):
 
     # Compila una expresión completa, y emite un return final para tener de centinela
     def compile(self):
-        self.expression()
+        while not self._is_at_end():
+            self.statement()
         self.emit(OpCode.OP_RETURN)
         return self.chunk
 
@@ -127,6 +128,32 @@ class Compiler(object):
             # Llama a binary que consume el + y el 3
             # Y llega al final de la expresión
             next_rule["infix_fn"]()
+
+    # ---------- Parsers de Statements  ---------- #
+
+    def statement(self):
+        if self._match(TokenType.PRINT):
+            self.print_statement()
+        else:
+            self.expression_statement()
+
+    def print_statement(self):
+        self.expression()
+        if not self._match(TokenType.SEMICOLON):
+            raise SyntaxError(
+                f"Expected ';' after value to print, got `{self._lookahead()}` instead"
+            )
+
+        self.emit(OpCode.OP_PRINT)
+
+    def expression_statement(self):
+        self.expression()
+        if not self._match(TokenType.SEMICOLON):
+            raise SyntaxError(
+                f"Expected ';' after expression, got `{self._lookahead()}` instead"
+            )
+
+        self.emit(OpCode.OP_POP)
 
     # ---------- Parsers de Expresiones ---------- #
 

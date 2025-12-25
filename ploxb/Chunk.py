@@ -12,6 +12,8 @@ class OpCode(IntEnum):
     OP_TRUE = auto()
     OP_FALSE = auto()
     OP_RETURN = auto()
+    OP_PRINT = auto()
+    OP_POP = auto()
     OP_NEGATE = auto()
     OP_ADD = auto()
     OP_SUBTRACT = auto()
