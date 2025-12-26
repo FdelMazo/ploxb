@@ -49,6 +49,8 @@ class Ploxb:
             self.vm.ip = 0
             self.vm.run(chunk)
         except Exception as e:
+            if debug:
+                traceback.print_exc()
             print(f"Runtime Error: {e}")
             return
 
