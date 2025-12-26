@@ -1,9 +1,11 @@
-from enum import Enum
+from enum import IntEnum
+from functools import total_ordering
 from ploxb.Scanner import Token, TokenType
 from ploxb.Chunk import Chunk, OpCode
 
 
-class Precedence(Enum):
+@total_ordering
+class Precedence(IntEnum):
     # Ordenados de menor a mayor precedencia!
     PREC_NONE = 0
     PREC_ASSIGNMENT = 1
@@ -20,6 +22,9 @@ class Precedence(Enum):
     # Permite hacer comparaciones entre precedencias
     def __lt__(self, other):
         return self.value < other.value
+
+    def __eq__(self, other):
+        return self.value == other.value
 
     # Obtiene la siguiente precedencia (mayor a la actual)
     def next(self):
@@ -108,8 +113,13 @@ class Compiler(object):
         if rule["prefix_fn"] is None:
             raise SyntaxError(f"Unexpected token: {token}")
 
-        # Llama a unary, que compila el - y el 5
-        rule["prefix_fn"]()
+        prefix_fn_name = PRATT[token.token_type][0]
+        can_assign = precedence <= Precedence.PREC_ASSIGNMENT
+        if prefix_fn_name == "variable":
+            self.variable(can_assign)
+        else:
+            # Llama a unary, que compila el - y el 5
+            rule["prefix_fn"]()
 
         # Ya compilamos el - 5, nos queda el + 3
         # Ahora, nos fijamos si estamos parados en una expresión infija
@@ -128,6 +138,9 @@ class Compiler(object):
             # Llama a binary que consume el + y el 3
             # Y llega al final de la expresión
             next_rule["infix_fn"]()
+
+            if can_assign and self._match(TokenType.EQUAL):
+                raise SyntaxError("Invalid assignment target.")
 
     # ---------- Parsers de Statements  ---------- #
 
@@ -185,10 +198,10 @@ class Compiler(object):
     def expression(self):
         self.parse(Precedence.PREC_ASSIGNMENT)
 
-    def variable(self):
+    def variable(self, valid_target: bool):
         var_name = self._previous()
 
-        if self._match(TokenType.EQUAL):
+        if valid_target and self._match(TokenType.EQUAL):
             self.expression()
             self.emit(OpCode.OP_SET_GLOBAL)
         else:
