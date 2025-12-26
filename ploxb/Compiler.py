@@ -64,7 +64,7 @@ PRATT: dict[TokenType, tuple[str | None, str | None, Precedence, Precedence]] = 
     TokenType.COMMA:         (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
     TokenType.RETURN:        (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
     TokenType.VAR:           (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
-    TokenType.IDENTIFIER:    (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
+    TokenType.IDENTIFIER:    ("variable",  None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
     TokenType.PRINT:         (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
     TokenType.EOF:           (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
 }
@@ -132,10 +132,34 @@ class Compiler(object):
     # ---------- Parsers de Statements  ---------- #
 
     def statement(self):
-        if self._match(TokenType.PRINT):
+        if self._match(TokenType.VAR):
+            self.var_declaration()
+        elif self._match(TokenType.PRINT):
             self.print_statement()
         else:
             self.expression_statement()
+
+    def var_declaration(self):
+        if not self._match(TokenType.IDENTIFIER):
+            raise SyntaxError(
+                f"Expected variable name after 'var', got `{self._lookahead()}` instead"
+            )
+
+        var_name = self._previous()
+
+        if self._match(TokenType.EQUAL):
+            self.expression()
+        else:
+            self.emit(OpCode.OP_NIL)
+
+        if not self._match(TokenType.SEMICOLON):
+            raise SyntaxError(
+                f"Expected ';' after variable declaration, got `{self._lookahead()}` instead"
+            )
+
+        self.emit(OpCode.OP_DEFINE_GLOBAL)
+        constant_index = self.chunk.add_constant(var_name.lexeme)
+        self.emit(constant_index)
 
     def print_statement(self):
         self.expression()
@@ -160,6 +184,18 @@ class Compiler(object):
     # Parsear una expresión completa es parsear la precedencia más baja
     def expression(self):
         self.parse(Precedence.PREC_ASSIGNMENT)
+
+    def variable(self):
+        var_name = self._previous()
+
+        if self._match(TokenType.EQUAL):
+            self.expression()
+            self.emit(OpCode.OP_SET_GLOBAL)
+        else:
+            self.emit(OpCode.OP_GET_GLOBAL)
+
+        constant_index = self.chunk.add_constant(var_name.lexeme)
+        self.emit(constant_index)
 
     # Parsea un número o un string
     def value(self):

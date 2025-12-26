@@ -23,6 +23,9 @@ class OpCode(IntEnum):
     OP_EQUAL = auto()
     OP_GREATER = auto()
     OP_LESS = auto()
+    OP_DEFINE_GLOBAL = auto()
+    OP_GET_GLOBAL = auto()
+    OP_SET_GLOBAL = auto()
 
 
 class Chunk(object):
@@ -54,10 +57,15 @@ class Chunk(object):
             byte = self.bytes[i]
             print(f"{i:04d}", end=" ")
             match byte:
-                case OpCode.OP_CONSTANT:
+                case (
+                    OpCode.OP_CONSTANT
+                    | OpCode.OP_DEFINE_GLOBAL
+                    | OpCode.OP_GET_GLOBAL
+                    | OpCode.OP_SET_GLOBAL
+                ):
                     constant_index = self.bytes[i + 1]
                     constant_value = self.constants[constant_index]
-                    print(f"OP_CONSTANT<{constant_value}>")
+                    print(f"{OpCode(byte).name}<{constant_value}>")
                     # Hay que saltar el byte de la constante!
                     i += 2
                 # All simple instructions

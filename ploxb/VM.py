@@ -10,6 +10,7 @@ class VM(object):
         # El stack de la máquina virtual
         # almacena todos los valores intermedios que se van produciendo
         self.values: list[ValueType] = []
+        self.globals: dict[str, ValueType] = {}
 
     def peek(self, distance=0):
         return self.values[-1 - distance] if len(self.values) > distance else None
@@ -28,7 +29,7 @@ class VM(object):
 
     def run(self, chunk: Chunk):
         while self.ip < len(chunk.bytes):
-            # print(f"{self.ip:04d} - STACK {self.values}")
+            # print(f"{self.ip:04d} - STACK {self.values} - GLOBALS {self.globals}")
             byte = chunk.bytes[self.ip]
             self.ip += 1
             match byte:
@@ -38,6 +39,27 @@ class VM(object):
                     self.pop()
                 case OpCode.OP_RETURN:
                     return
+                case OpCode.OP_DEFINE_GLOBAL:
+                    var_index = chunk.bytes[self.ip]
+                    var_name = chunk.constants[var_index]
+                    var_value = self.pop()
+                    self.globals[str(var_name)] = var_value
+                    self.ip += 1
+                case OpCode.OP_GET_GLOBAL:
+                    var_index = chunk.bytes[self.ip]
+                    var_name = chunk.constants[var_index]
+                    if var_name not in self.globals:
+                        raise RuntimeError(f"Undefined variable '{var_name}'")
+                    var_value = self.globals[str(var_name)]
+                    self.push(var_value)
+                    self.ip += 1
+                case OpCode.OP_SET_GLOBAL:
+                    var_index = chunk.bytes[self.ip]
+                    var_name = chunk.constants[var_index]
+                    if var_name not in self.globals:
+                        raise RuntimeError(f"Undefined variable '{var_name}'")
+                    self.globals[str(var_name)] = self.peek()
+                    self.ip += 1
                 case OpCode.OP_CONSTANT:
                     constant_index = chunk.bytes[self.ip]
                     constant_value = chunk.constants[constant_index]
