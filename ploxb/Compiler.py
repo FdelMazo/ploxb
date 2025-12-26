@@ -76,7 +76,7 @@ PRATT: dict[TokenType, tuple[str | None, str | None, Precedence, Precedence]] = 
 # fmt: on
 
 
-class Compiler(object):
+class Compiler:
     def __init__(self, tokens: list[Token]):
         # Todos los tokens a compilar
         self.tokens = tokens

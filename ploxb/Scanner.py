@@ -1,7 +1,7 @@
 from ploxb.Token import Token, TokenType, TokenKeywords
 
 
-class Scanner(object):
+class Scanner:
     def __init__(self, source: str):
         # nos vamos a ir guardando los tokens, que son el texto crudo acompañado de su significado
         self.tokens: list[Token] = []

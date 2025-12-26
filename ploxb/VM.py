@@ -2,7 +2,7 @@ from ploxb.Token import ValueType
 from ploxb.Chunk import Chunk, OpCode
 
 
-class VM(object):
+class VM:
     def __init__(self):
         # El instruction pointer
         # siempre apunta a la siguiente instrucción a ejecutar

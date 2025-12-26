@@ -59,7 +59,7 @@ class TokenType(Enum):
 TokenLiteralType = ValueType
 
 
-class Token(object):
+class Token:
     def __init__(
         self,
         token_type: TokenType,

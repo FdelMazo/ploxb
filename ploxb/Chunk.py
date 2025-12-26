@@ -28,7 +28,7 @@ class OpCode(IntEnum):
     OP_SET_GLOBAL = auto()
 
 
-class Chunk(object):
+class Chunk:
     def __init__(self):
         # Todos los bytes del chunk.
         # Hay dos tipos de bytes:
