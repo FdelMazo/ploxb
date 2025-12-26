@@ -26,6 +26,8 @@ class OpCode(IntEnum):
     OP_DEFINE_GLOBAL = auto()
     OP_GET_GLOBAL = auto()
     OP_SET_GLOBAL = auto()
+    OP_GET_LOCAL = auto()
+    OP_SET_LOCAL = auto()
 
 
 class Chunk:
@@ -62,6 +64,8 @@ class Chunk:
                     | OpCode.OP_DEFINE_GLOBAL
                     | OpCode.OP_GET_GLOBAL
                     | OpCode.OP_SET_GLOBAL
+                    | OpCode.OP_GET_LOCAL
+                    | OpCode.OP_SET_LOCAL
                 ):
                     constant_index = self.bytes[i + 1]
                     constant_value = self.constants[constant_index]

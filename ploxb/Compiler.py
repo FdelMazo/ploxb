@@ -76,6 +76,33 @@ PRATT: dict[TokenType, tuple[str | None, str | None, Precedence, Precedence]] = 
 # fmt: on
 
 
+class Local:
+    def __init__(self, name: str):
+        self.name = name
+        self.depth = None
+
+
+class CompilerContext:
+    def __init__(self):
+        self.locals = []
+        self.scope_depth = 0
+
+    def begin_scope(self):
+        self.scope_depth += 1
+
+    def end_scope(self, on_pop=lambda: None):
+        self.scope_depth -= 1
+        while self.locals and self.locals[-1].depth == self.scope_depth:
+            on_pop()
+            self.locals.pop()
+
+    def define(self, name: str):
+        self.locals.append(Local(name))
+
+    def initialize_last(self):
+        self.locals[-1].depth = self.scope_depth
+
+
 class Compiler:
     def __init__(self, tokens: list[Token]):
         # Todos los tokens a compilar
@@ -84,6 +111,7 @@ class Compiler:
         self.current = 0
         # El chunk resultante de la compilación
         self.chunk = Chunk()
+        self.context = CompilerContext()
 
     # ---------- Core ---------- #
 
@@ -149,6 +177,10 @@ class Compiler:
             self.var_declaration()
         elif self._match(TokenType.PRINT):
             self.print_statement()
+        elif self._match(TokenType.LEFT_BRACE):
+            self.context.begin_scope()
+            self.block()
+            self.context.end_scope(lambda: self.emit(OpCode.OP_POP))
         else:
             self.expression_statement()
 
@@ -170,9 +202,34 @@ class Compiler:
                 f"Expected ';' after variable declaration, got `{self._lookahead()}` instead"
             )
 
+        if self.context.scope_depth > 0:
+            for local in reversed(self.context.locals):
+                if local.depth and local.depth < self.context.scope_depth:
+                    break
+                if local.name == var_name.lexeme:
+                    raise SyntaxError(
+                        f"Variable with name `{var_name.lexeme}` already declared in this scope"
+                    )
+
+            self.context.define(var_name.lexeme)
+            self.context.initialize_last()
+            return
+
         self.emit(OpCode.OP_DEFINE_GLOBAL)
         constant_index = self.chunk.add_constant(var_name.lexeme)
         self.emit(constant_index)
+
+    def block(self):
+        while (
+            not self._is_at_end()
+            and not self._lookahead().token_type == TokenType.RIGHT_BRACE
+        ):
+            self.statement()
+
+        if not self._match(TokenType.RIGHT_BRACE):
+            raise SyntaxError(
+                f"Expected '}}' after block, got `{self._lookahead()}` instead"
+            )
 
     def print_statement(self):
         self.expression()
@@ -201,11 +258,24 @@ class Compiler:
     def variable(self, valid_target: bool):
         var_name = self._previous()
 
+        is_local = False
+        for local in reversed(self.context.locals):
+            if local.name == var_name.lexeme:
+                if not local.depth:
+                    raise SyntaxError(
+                        "Can't read local variable in its own initializer."
+                    )
+                is_local = True
+                break
+
+        set_op = OpCode.OP_SET_LOCAL if is_local else OpCode.OP_SET_GLOBAL
+        get_op = OpCode.OP_GET_LOCAL if is_local else OpCode.OP_GET_GLOBAL
+
         if valid_target and self._match(TokenType.EQUAL):
             self.expression()
-            self.emit(OpCode.OP_SET_GLOBAL)
+            self.emit(set_op)
         else:
-            self.emit(OpCode.OP_GET_GLOBAL)
+            self.emit(get_op)
 
         constant_index = self.chunk.add_constant(var_name.lexeme)
         self.emit(constant_index)

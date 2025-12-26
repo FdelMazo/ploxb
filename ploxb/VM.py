@@ -60,6 +60,15 @@ class VM:
                         raise RuntimeError(f"Undefined variable '{var_name}'")
                     self.globals[str(var_name)] = self.peek()
                     self.ip += 1
+                case OpCode.OP_GET_LOCAL:
+                    var_index = chunk.bytes[self.ip]
+                    var_value = self.values[var_index]
+                    self.push(var_value)
+                    self.ip += 1
+                case OpCode.OP_SET_LOCAL:
+                    var_index = chunk.bytes[self.ip]
+                    self.values[var_index] = self.peek()
+                    self.ip += 1
                 case OpCode.OP_CONSTANT:
                     constant_index = chunk.bytes[self.ip]
                     constant_value = chunk.constants[constant_index]
