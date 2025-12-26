@@ -17,6 +17,9 @@ promptsession: PromptSession[str] = PromptSession(history=FileHistory(history_fi
 
 
 class Ploxb:
+    def __init__(self):
+        self.vm = VM()
+
     def run(self, source: str, debug: bool = False):
         scanner = Scanner(source)
         try:
@@ -41,9 +44,10 @@ class Ploxb:
 
         if debug:
             chunk.dis()
-        vm = VM(chunk)
+
         try:
-            vm.run()
+            self.vm.ip = 0
+            self.vm.run(chunk)
         except Exception as e:
             print(f"Runtime Error: {e}")
             return

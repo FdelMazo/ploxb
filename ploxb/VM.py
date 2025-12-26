@@ -3,9 +3,7 @@ from ploxb.Chunk import Chunk, OpCode
 
 
 class VM(object):
-    def __init__(self, chunk: Chunk):
-        # El chunk a ejecutar
-        self.chunk = chunk
+    def __init__(self):
         # El instruction pointer
         # siempre apunta a la siguiente instrucción a ejecutar
         self.ip = 0
@@ -28,10 +26,10 @@ class VM(object):
         # Devuelve el tope del stack, y lo elimina
         return self.values.pop()
 
-    def run(self):
-        while self.ip < len(self.chunk.bytes):
+    def run(self, chunk: Chunk):
+        while self.ip < len(chunk.bytes):
             # print(f"{self.ip:04d} - STACK {self.values}")
-            byte = self.chunk.bytes[self.ip]
+            byte = chunk.bytes[self.ip]
             self.ip += 1
             match byte:
                 case OpCode.OP_PRINT:
@@ -41,8 +39,8 @@ class VM(object):
                 case OpCode.OP_RETURN:
                     return
                 case OpCode.OP_CONSTANT:
-                    constant_index = self.chunk.bytes[self.ip]
-                    constant_value = self.chunk.constants[constant_index]
+                    constant_index = chunk.bytes[self.ip]
+                    constant_value = chunk.constants[constant_index]
                     # La instrucción de constante es "cargar" la constante en memoria:
                     # es solamente producir el resultado y pushearlo al tope del stack!
                     self.push(constant_value)
