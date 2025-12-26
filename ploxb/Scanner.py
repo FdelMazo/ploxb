@@ -99,11 +99,11 @@ class Scanner(object):
                 self.add_token(
                     TokenType.GREATER_EQUAL if self._match("=") else TokenType.GREATER
                 )
-            case "'":
-                # consumimos la cadena hasta el proximo ' o hasta el fin de linea
+            case '"':
+                # consumimos la cadena hasta el proximo " o hasta el fin de linea
                 while (
                     not self._is_at_end()
-                    and not self._lookahead() == "'"
+                    and not self._lookahead() == '"'
                     and not self._lookahead() == "\n"
                 ):
                     self._advance()
