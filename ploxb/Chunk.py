@@ -28,6 +28,8 @@ class OpCode(IntEnum):
     OP_SET_GLOBAL = auto()
     OP_GET_LOCAL = auto()
     OP_SET_LOCAL = auto()
+    OP_JUMP_IF_FALSE = auto()
+    OP_JUMP = auto()
 
 
 class Chunk:
@@ -72,6 +74,11 @@ class Chunk:
                     print(f"{OpCode(byte).name}<{constant_value}>")
                     # Hay que saltar el byte de la constante!
                     i += 2
+                case OpCode.OP_JUMP | OpCode.OP_JUMP_IF_FALSE:
+                    offset1, offset2 = self.bytes[i + 1], self.bytes[i + 2]
+                    offset = (offset1 << 8) | offset2
+                    print(f"{OpCode(byte).name}<{offset:04d}>")
+                    i += 3
                 # All simple instructions
                 case _:
                     print(OpCode(byte).name)

@@ -177,6 +177,8 @@ class Compiler:
             self.var_declaration()
         elif self._match(TokenType.PRINT):
             self.print_statement()
+        elif self._match(TokenType.IF):
+            self.if_statement()
         elif self._match(TokenType.LEFT_BRACE):
             self.context.begin_scope()
             self.block()
@@ -230,6 +232,44 @@ class Compiler:
             raise SyntaxError(
                 f"Expected '}}' after block, got `{self._lookahead()}` instead"
             )
+
+    def if_statement(self):
+        if not self._match(TokenType.LEFT_PAREN):
+            raise SyntaxError(
+                f"Expected '(' after 'if', got `{self._lookahead()}` instead"
+            )
+
+        self.expression()
+
+        if not self._match(TokenType.RIGHT_PAREN):
+            raise SyntaxError(
+                f"Expected ')' after condition, got `{self._lookahead()}` instead"
+            )
+
+        self.emit(OpCode.OP_JUMP_IF_FALSE)
+        jump_offset = len(self.chunk.bytes)
+        self.emit(0xFF)
+        self.emit(0xFF)
+
+        self.emit(OpCode.OP_POP)
+        self.statement()
+
+        self.emit(OpCode.OP_JUMP)
+        else_jump_offset = len(self.chunk.bytes)
+        self.emit(0xFF)
+        self.emit(0xFF)
+
+        jump_target = len(self.chunk.bytes) - jump_offset - 2
+        self.chunk.bytes[jump_offset] = (jump_target >> 8) & 0xFF
+        self.chunk.bytes[jump_offset + 1] = jump_target & 0xFF
+        self.emit(OpCode.OP_POP)
+
+        if self._match(TokenType.ELSE):
+            self.statement()
+
+        else_jump_target = len(self.chunk.bytes) - else_jump_offset - 2
+        self.chunk.bytes[else_jump_offset] = (else_jump_target >> 8) & 0xFF
+        self.chunk.bytes[else_jump_offset + 1] = else_jump_target & 0xFF
 
     def print_statement(self):
         self.expression()

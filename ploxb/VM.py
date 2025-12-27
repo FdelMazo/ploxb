@@ -39,6 +39,17 @@ class VM:
                     self.pop()
                 case OpCode.OP_RETURN:
                     return
+                case OpCode.OP_JUMP_IF_FALSE:
+                    offset1, offset2 = chunk.bytes[self.ip], chunk.bytes[self.ip + 1]
+                    offset = (offset1 << 8) | offset2
+                    self.ip += 2
+                    if not self.is_truthy(self.peek()):
+                        self.ip += offset
+                case OpCode.OP_JUMP:
+                    offset1, offset2 = chunk.bytes[self.ip], chunk.bytes[self.ip + 1]
+                    offset = (offset1 << 8) | offset2
+                    self.ip += 2
+                    self.ip += offset
                 case OpCode.OP_DEFINE_GLOBAL:
                     var_index = chunk.bytes[self.ip]
                     var_name = chunk.constants[var_index]
