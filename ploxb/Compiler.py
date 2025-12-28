@@ -59,8 +59,8 @@ PRATT: dict[TokenType, tuple[str | None, str | None, Precedence, Precedence]] = 
     TokenType.GREATER_EQUAL: (None,        "binary",   Precedence.PREC_NONE,  Precedence.PREC_COMPARISON),
     TokenType.LESS:          (None,        "binary",   Precedence.PREC_NONE,  Precedence.PREC_COMPARISON),
     TokenType.LESS_EQUAL:    (None,        "binary",   Precedence.PREC_NONE,  Precedence.PREC_COMPARISON),
-    TokenType.AND:           (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
-    TokenType.OR:            (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
+    TokenType.AND:           (None,        "logic_and",Precedence.PREC_NONE,  Precedence.PREC_AND),
+    TokenType.OR:            (None,        "logic_or", Precedence.PREC_NONE,  Precedence.PREC_OR),
     TokenType.IF:            (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
     TokenType.ELSE:          (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
     TokenType.WHILE:         (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
@@ -332,6 +332,41 @@ class Compiler:
         constant_index = self.chunk.add_constant(token.literal)
         self.emit(OpCode.OP_CONSTANT)
         self.emit(constant_index)
+
+    def logic_and(self):
+        self.emit(OpCode.OP_JUMP_IF_FALSE)
+        jump_offset = len(self.chunk.bytes)
+        self.emit(0xFF)
+        self.emit(0xFF)
+
+        self.emit(OpCode.OP_POP)
+        self.parse(Precedence.PREC_AND)
+
+        jump_target = len(self.chunk.bytes) - jump_offset - 2
+        self.chunk.bytes[jump_offset] = (jump_target >> 8) & 0xFF
+        self.chunk.bytes[jump_offset + 1] = jump_target & 0xFF
+
+    def logic_or(self):
+        self.emit(OpCode.OP_JUMP_IF_FALSE)
+        else_jump_offset = len(self.chunk.bytes)
+        self.emit(0xFF)
+        self.emit(0xFF)
+
+        self.emit(OpCode.OP_JUMP)
+        end_jump_offset = len(self.chunk.bytes)
+        self.emit(0xFF)
+        self.emit(0xFF)
+
+        else_jump_target = len(self.chunk.bytes) - else_jump_offset - 2
+        self.chunk.bytes[else_jump_offset] = (else_jump_target >> 8) & 0xFF
+        self.chunk.bytes[else_jump_offset + 1] = else_jump_target & 0xFF
+
+        self.emit(OpCode.OP_POP)
+        self.parse(Precedence.PREC_OR)
+
+        end_jump_target = len(self.chunk.bytes) - end_jump_offset - 2
+        self.chunk.bytes[end_jump_offset] = (end_jump_target >> 8) & 0xFF
+        self.chunk.bytes[end_jump_offset + 1] = end_jump_target & 0xFF
 
     # Parsea expresiones unarias
     # Por más que el orden de lectura sea <operador><operando>,
