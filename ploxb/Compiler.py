@@ -335,7 +335,7 @@ class Compiler:
         var_name = self._previous()
 
         is_local = False
-        for local in reversed(self.context.locals):
+        for slot_index, local in enumerate(reversed(self.context.locals)):
             if local.name == var_name.lexeme:
                 if not local.depth:
                     raise SyntaxError(
@@ -353,8 +353,11 @@ class Compiler:
         else:
             self.emit(get_op)
 
-        constant_index = self.chunk.add_constant(var_name.lexeme)
-        self.emit(constant_index)
+        if is_local:
+            self.emit(slot_index)
+        else:
+            constant_index = self.chunk.add_constant(var_name.lexeme)
+            self.emit(constant_index)
 
     # Parsea un número o un string
     def value(self):

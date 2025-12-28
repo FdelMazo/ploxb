@@ -67,13 +67,15 @@ class Chunk:
                     | OpCode.OP_DEFINE_GLOBAL
                     | OpCode.OP_GET_GLOBAL
                     | OpCode.OP_SET_GLOBAL
-                    | OpCode.OP_GET_LOCAL
-                    | OpCode.OP_SET_LOCAL
                 ):
                     constant_index = self.bytes[i + 1]
                     constant_value = self.constants[constant_index]
                     print(f"{OpCode(byte).name}<{constant_value}>")
                     # Hay que saltar el byte de la constante!
+                    i += 2
+                case OpCode.OP_GET_LOCAL | OpCode.OP_SET_LOCAL:
+                    var_index = self.bytes[i + 1]
+                    print(f"{OpCode(byte).name}<@{var_index}>")
                     i += 2
                 case OpCode.OP_JUMP | OpCode.OP_JUMP_IF_FALSE:
                     offset1, offset2 = self.bytes[i + 1], self.bytes[i + 2]
