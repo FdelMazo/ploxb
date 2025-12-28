@@ -30,6 +30,7 @@ class OpCode(IntEnum):
     OP_SET_LOCAL = auto()
     OP_JUMP_IF_FALSE = auto()
     OP_JUMP = auto()
+    OP_LOOP = auto()
 
 
 class Chunk:
@@ -77,7 +78,14 @@ class Chunk:
                 case OpCode.OP_JUMP | OpCode.OP_JUMP_IF_FALSE:
                     offset1, offset2 = self.bytes[i + 1], self.bytes[i + 2]
                     offset = (offset1 << 8) | offset2
-                    print(f"{OpCode(byte).name}<{offset:04d}>")
+                    jump_to = i + 3 + offset
+                    print(f"{OpCode(byte).name}<{jump_to:04d}>")
+                    i += 3
+                case OpCode.OP_LOOP:
+                    offset1, offset2 = self.bytes[i + 1], self.bytes[i + 2]
+                    offset = (offset1 << 8) | offset2
+                    jump_to = i + 3 + (offset * -1)
+                    print(f"{OpCode(byte).name}<{jump_to:04d}>")
                     i += 3
                 # All simple instructions
                 case _:
