@@ -29,6 +29,7 @@ class VM:
 
     def run(self, chunk: Chunk):
         while self.ip < len(chunk.bytes):
+            # TODO: mejor imprimirlo a lo === STACK ==== ?
             # print(f"{self.ip:04d} - STACK {self.values} - GLOBALS {self.globals}")
             byte = chunk.bytes[self.ip]
             self.ip += 1

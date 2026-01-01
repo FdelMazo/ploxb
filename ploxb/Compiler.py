@@ -35,6 +35,7 @@ class Precedence(IntEnum):
 
 # fmt: off
 # Es muy flexible! Agregar operadores es una fila nueva, y cambiár la gramática es solamente editar una celda
+# TODO: puedo matar las que tienen todo none? para mostrar que esto es solo expresiones?
 PRATT: dict[TokenType, tuple[str | None, str | None, Precedence, Precedence]] = {
     # TokenType              (prefix_fn,   infix_fn,   prefix_precedence,     infix_precedence)
     TokenType.LEFT_PAREN:    ("grouping",  None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
