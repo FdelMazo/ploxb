@@ -1,6 +1,6 @@
-# plox
+# ploxb
 
-Compilador a Bytecode de Lox (Crafting Interpreters), hecho en Python, para enseñar Lenguajes y Compiladores I (FIUBA)
+Compilador a Bytecode de [Lox](https://craftinginterpreters.com/) hecho en Python, para enseñar Lenguajes y Compiladores I (FIUBA)
 
 ```sh
 # Install uv
