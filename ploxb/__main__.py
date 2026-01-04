@@ -44,10 +44,11 @@ class Ploxb:
 
         if debug:
             chunk.dis()
+            print()
 
         try:
             self.vm.ip = 0
-            self.vm.run(chunk)
+            self.vm.run(chunk, debug)
         except Exception as e:
             if debug:
                 traceback.print_exc()
@@ -57,7 +58,7 @@ class Ploxb:
     def main(self):
         parser = argparse.ArgumentParser(
             prog="ploxb",
-            description="Lox bytecode compiler in Python",
+            description="Lox Bytecode compiler in Python",
         )
         parser.add_argument("--debug", action="store_true", help="Enable debug mode")
         parser.add_argument(
