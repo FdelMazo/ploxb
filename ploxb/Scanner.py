@@ -86,6 +86,8 @@ class Scanner:
                     # consumimos el resto de la linea
                     while not self._lookahead() == "\n" and not self._is_at_end():
                         self._advance()
+                else:
+                    self.add_token(TokenType.SLASH)
             # tokens de uno o dos caracteres
             case "!":
                 self.add_token(
