@@ -54,6 +54,9 @@ class VM:
                 print(f"{self.ip:04d}|", end=" ")
 
             byte = READ()
+            # TODO: creo que este match esta haciendo muchisimo heavy lifting
+            # con overhead. si lo cambio a un dispatch table tal vez va
+            # más rápido?
             match byte:
                 # Final de la ejecución
                 case OpCode.OP_RETURN:
