@@ -146,7 +146,7 @@ class VM:
                 # solamente popear el tope del stack y mostrarlo
                 case OpCode.OP_PRINT:
                     if debug:
-                        print(f"OUTPUT: {self.pop()}")
+                        print(f"OUTPUT\n{self.pop()}")
                         continue
                     else:
                         print(self.pop())
@@ -211,16 +211,21 @@ class VM:
                     var_value = self.stack[slot]
                     self.push(var_value)
 
+                # Instrucciones de saltos
+                # Salto incondicional
+                case OpCode.OP_JUMP:
+                    offset = READ_WORD()
+                    self.ip += offset
+                # Salto solo si el tope del stack es falso
                 case OpCode.OP_JUMP_IF_FALSE:
                     offset = READ_WORD()
                     if not self.is_truthy(self.peek()):
                         self.ip += offset
-                case OpCode.OP_JUMP:
-                    offset = READ_WORD()
-                    self.ip += offset
+                # Salta hacia atrás N instrucciones
                 case OpCode.OP_LOOP:
                     offset = READ_WORD()
                     self.ip -= offset
+
                 case _:
                     raise RuntimeError(f"UNKNOWN {byte}")
 

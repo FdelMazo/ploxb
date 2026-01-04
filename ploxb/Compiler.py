@@ -110,6 +110,8 @@ class Compiler:
             self.if_statement()
         elif self._match(TokenType.WHILE):
             self.while_statement()
+        elif self._match(TokenType.FOR):
+            self.for_statement()
         elif self._match(TokenType.LEFT_BRACE):
             self.block_statement()
         else:
@@ -143,19 +145,6 @@ class Compiler:
         vars_removed = self.context.end_scope()
         for _ in range(vars_removed):
             self.emit(OpCode.OP_POP)
-
-    # Parsea una seguidilla de statements dentro de un bloque
-    def block(self):
-        while (
-            not self._is_at_end()
-            and not self._lookahead().token_type == TokenType.RIGHT_BRACE
-        ):
-            self.statement()
-
-        if not self._match(TokenType.RIGHT_BRACE):
-            raise SyntaxError(
-                f"Expected '}}' after block, got `{self._lookahead()}` instead"
-            )
 
     # Parsea una declaración de variable
     def var_declaration(self):
@@ -206,12 +195,14 @@ class Compiler:
             # para que se resuelva el binding en runtime
             self.emit(OpCode.OP_DEFINE_GLOBAL, var_index)
 
+    # Parsea un if
     def if_statement(self):
         if not self._match(TokenType.LEFT_PAREN):
             raise SyntaxError(
                 f"Expected '(' after 'if', got `{self._lookahead()}` instead"
             )
 
+        # Compila la condición
         self.expression()
 
         if not self._match(TokenType.RIGHT_PAREN):
@@ -219,31 +210,36 @@ class Compiler:
                 f"Expected ')' after condition, got `{self._lookahead()}` instead"
             )
 
+        # Salta el cuerpo del if si la condición no se cumple
         self.emit(OpCode.OP_JUMP_IF_FALSE)
-        jump_offset = len(self.chunk.bytes)
-        self.emit(0xFF)
-        self.emit(0xFF)
+        then_jump = self.emit_jump_operand()
 
+        # Hay que sacar la condición del stack
         self.emit(OpCode.OP_POP)
+
+        # Compila el cuerpo del if
         self.statement()
 
+        # Si esta dentro del cuerpo del if, cuando termine
+        # hay que saltearse todo el cuerpo del else
         self.emit(OpCode.OP_JUMP)
-        else_jump_offset = len(self.chunk.bytes)
-        self.emit(0xFF)
-        self.emit(0xFF)
+        else_jump = self.emit_jump_operand()
 
-        jump_target = len(self.chunk.bytes) - jump_offset - 2
-        self.chunk.bytes[jump_offset] = (jump_target >> 8) & 0xFF
-        self.chunk.bytes[jump_offset + 1] = jump_target & 0xFF
+        # Ahora que se cuanto saltar, emparcho el then
+        self.patch_jump(then_jump)
+
+        # Hay que sacar la condición del stack
+        # (o lo popeamos antes, o lo popeamos ahora)
         self.emit(OpCode.OP_POP)
 
+        # Si tengo un `else`, compilo su cuerpo
         if self._match(TokenType.ELSE):
             self.statement()
 
-        else_jump_target = len(self.chunk.bytes) - else_jump_offset - 2
-        self.chunk.bytes[else_jump_offset] = (else_jump_target >> 8) & 0xFF
-        self.chunk.bytes[else_jump_offset + 1] = else_jump_target & 0xFF
+        # Ahora que se cuanto saltar, emparcho el else
+        self.patch_jump(else_jump)
 
+    # Parsea un while
     def while_statement(self):
         loop_start = len(self.chunk.bytes)
 
@@ -252,6 +248,7 @@ class Compiler:
                 f"Expected '(' after 'while', got `{self._lookahead()}` instead"
             )
 
+        # Compila la condición
         self.expression()
 
         if not self._match(TokenType.RIGHT_PAREN):
@@ -259,24 +256,121 @@ class Compiler:
                 f"Expected ')' after condition, got `{self._lookahead()}` instead"
             )
 
+        # Si la condición no se cumple, nos salteamos todo el cuerpo
         self.emit(OpCode.OP_JUMP_IF_FALSE)
-        jump_offset = len(self.chunk.bytes)
-        self.emit(0xFF)
-        self.emit(0xFF)
+        exit_jump = self.emit_jump_operand()
 
+        # Popeamos la condición
         self.emit(OpCode.OP_POP)
+
+        # Compilamos el cuerpo del while
         self.statement()
 
+        # Terminado el cuerpo del while, loopeamos a su comienzo
         self.emit(OpCode.OP_LOOP)
-        offset = len(self.chunk.bytes) - loop_start
-        self.emit((offset >> 8) & 0xFF)
-        self.emit(offset & 0xFF)
+        self.emit_loop_operand(loop_start)
 
-        jump_target = len(self.chunk.bytes) - jump_offset - 2
-        self.chunk.bytes[jump_offset] = (jump_target >> 8) & 0xFF
-        self.chunk.bytes[jump_offset + 1] = jump_target & 0xFF
+        # Ahora que ya sabemos a donde se salta, lo emparchamos
+        self.patch_jump(exit_jump)
 
+        # Popeamos la condición (si no paso en la otra branch, pasa acá)
         self.emit(OpCode.OP_POP)
+
+    def for_statement(self):
+        # for (<inicializador> ; <condición> ; <incremento>) <cuerpo>
+
+        # Las variables que se crean en el inicializador viven en su
+        # propio scope
+        self.context.begin_scope()
+
+        if not self._match(TokenType.LEFT_PAREN):
+            raise SyntaxError(
+                f"Expected '(' after 'for', got `{self._lookahead()}` instead"
+            )
+
+        # <inicializador>
+        if self._match(TokenType.SEMICOLON):
+            # Si directamente tenemos un ;
+            # no hay inicializador
+            pass
+        elif self._match(TokenType.VAR):
+            # Si hay un var, tenemos que declarar la variable
+            self.var_declaration()
+        else:
+            # Si no, directamente es una expresión
+            self.expression_statement()
+
+        # Post inicializador, arranca el bucle
+        loop_start = len(self.chunk.bytes)
+
+        # <condición>
+        exit_jump = None
+        if not self._match(TokenType.SEMICOLON):
+            self.expression()
+            if not self._match(TokenType.SEMICOLON):
+                raise SyntaxError(
+                    f"Expected ';' after `for` loop condition, got `{self._lookahead()}` instead"
+                )
+
+            # Si la condición no se cumple, tenemos que saltearnos el cuerpo
+            self.emit(OpCode.OP_JUMP_IF_FALSE)
+            exit_jump = self.emit_jump_operand()
+            self.emit(OpCode.OP_POP)
+
+        # <incremento>
+        # El incremento esta antes del cuerpo, pero se ejecuta después,
+        # lo que nos lleva a hacer un par de saltos extraños
+        if not self._match(TokenType.RIGHT_PAREN):
+            # Si está presente, lo tenemos que saltear, ejecutar el cuerpo,
+            # y después con un loop volver al incremento para poder correrlo.
+            self.emit(OpCode.OP_JUMP)
+            body_jump = self.emit_jump_operand()
+
+            increment_start = len(self.chunk.bytes)
+
+            # El incremento en sí
+            self.expression()
+
+            self.emit(OpCode.OP_POP)
+
+            if not self._match(TokenType.RIGHT_PAREN):
+                raise SyntaxError(
+                    f"Expected ')' after `for` clauses, got `{self._lookahead()}` instead"
+                )
+
+            self.emit(OpCode.OP_LOOP)
+            self.emit_loop_operand(loop_start)
+
+            loop_start = increment_start
+            self.patch_jump(body_jump)
+
+        # <cuerpo>
+        self.statement()
+
+        # Loopeamos sobre el cuerpo
+        self.emit(OpCode.OP_LOOP)
+        self.emit_loop_operand(loop_start)
+
+        if exit_jump is not None:
+            self.patch_jump(exit_jump)
+            self.emit(OpCode.OP_POP)
+
+        self.context.end_scope()
+
+    # ---------- Utils ---------- #
+
+    # Parsea una seguidilla de statements dentro de un bloque
+    def block(self):
+        while (
+            not self._is_at_end()
+            and not self._lookahead().token_type == TokenType.RIGHT_BRACE
+        ):
+            self.statement()
+
+        if not self._match(TokenType.RIGHT_BRACE):
+            raise SyntaxError(
+                f"Expected '}}' after block, got `{self._lookahead()}` instead"
+            )
 
     # El corazon de la resolución de variables
     # Retorna el índice de la variable buscada sobre la lista de locales
@@ -298,7 +392,27 @@ class Compiler:
         # una variable resuelta en runtime. AKA: una variable global
         return None
 
-    # ---------- Pratt Parser Para Expresiones ---------- #
+    # Para emitir a donde se hace el salto, primero dejamos unos bytes vacios
+    # en su lugar y cuando sepamos el valor volvemos a ponerlo
+    def emit_jump_operand(self):
+        # Necesitamos guardarnos donde esta el salto para
+        # después poder volver a emparcharlo
+        current = len(self.chunk.bytes)
+        self.emit(0xFF, 0xFF)
+        return current
+
+    # Ahora si ya podemos emparchar el salto: ponemos la posición
+    # actual en su lugar
+    def patch_jump(self, jump_instruction: int):
+        target = len(self.chunk.bytes) - jump_instruction - 2
+        self.chunk.bytes[jump_instruction] = (target >> 8) & 0xFF
+        self.chunk.bytes[jump_instruction + 1] = target & 0xFF
+
+    def emit_loop_operand(self, loop_start: int):
+        target = len(self.chunk.bytes) - loop_start + 2
+        self.emit((target >> 8) & 0xFF, target & 0xFF)
+
+    # ---------- Pratt Parser para expresiones ---------- #
 
     # Dado un tipo de token, devuelve las funciones y precedencias asociadas
     # Defaultea a None y PREC_NONE si no existe la regla
@@ -495,40 +609,39 @@ class Compiler:
             # y tengo que emitir una instrucción de get
             self.emit(get_op, arg)
 
+    # Parsea un and
     def logic_and(self, _):
+        # A esta altura, el operador de la izquierda ya se compiló y
+        # esta en el tope del stack
+        # Si da falso, el and es falso, y directamente nos salteamos
+        # el operador de la derecha
         self.emit(OpCode.OP_JUMP_IF_FALSE)
-        jump_offset = len(self.chunk.bytes)
-        self.emit(0xFF)
-        self.emit(0xFF)
+        shortcircuit = self.emit_jump_operand()
 
         self.emit(OpCode.OP_POP)
         self.parse(Precedence.PREC_AND)
+        self.patch_jump(shortcircuit)
 
-        jump_target = len(self.chunk.bytes) - jump_offset - 2
-        self.chunk.bytes[jump_offset] = (jump_target >> 8) & 0xFF
-        self.chunk.bytes[jump_offset + 1] = jump_target & 0xFF
-
+    # Parsea un or
     def logic_or(self, _=None):
+        # A esta altura, el operador de la izquierda ya se compiló y
+        # esta en el tope del stack
+        # Si da verdadero, el or es verdadero, y directamente nos
+        # salteamos el operador de la derecha
+
+        # Pero... no tenemos un JUMP_IF_TRUE
+        # Entonces, hacemos una jugarreta: si da falso, vamos al
+        # operador de la derecha, y si no, hacemos un salto incondicional
         self.emit(OpCode.OP_JUMP_IF_FALSE)
-        else_jump_offset = len(self.chunk.bytes)
-        self.emit(0xFF)
-        self.emit(0xFF)
+        else_jump = self.emit_jump_operand()
 
         self.emit(OpCode.OP_JUMP)
-        end_jump_offset = len(self.chunk.bytes)
-        self.emit(0xFF)
-        self.emit(0xFF)
+        end_jump = self.emit_jump_operand()
 
-        else_jump_target = len(self.chunk.bytes) - else_jump_offset - 2
-        self.chunk.bytes[else_jump_offset] = (else_jump_target >> 8) & 0xFF
-        self.chunk.bytes[else_jump_offset + 1] = else_jump_target & 0xFF
-
+        self.patch_jump(else_jump)
         self.emit(OpCode.OP_POP)
         self.parse(Precedence.PREC_OR)
-
-        end_jump_target = len(self.chunk.bytes) - end_jump_offset - 2
-        self.chunk.bytes[end_jump_offset] = (end_jump_target >> 8) & 0xFF
-        self.chunk.bytes[end_jump_offset + 1] = end_jump_target & 0xFF
+        self.patch_jump(end_jump)
 
     # ---------- Helpers ---------- #
 
