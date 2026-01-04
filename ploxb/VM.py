@@ -118,6 +118,13 @@ class VM:
                             f"Operands of OP_DIVIDE must be numbers, got: `{a}, {b}`"
                         )
                     self.push(a / b)
+                case OpCode.OP_MODULO:
+                    b, a = self.pop(), self.pop()
+                    if not self.is_number(a, b):
+                        raise RuntimeError(
+                            f"Operands of OP_MODULO must be numbers, got: `{a}, {b}`"
+                        )
+                    self.push(a % b)
                 case OpCode.OP_EQUAL:
                     b, a = self.pop(), self.pop()
                     self.push(a == b)

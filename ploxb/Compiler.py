@@ -51,6 +51,7 @@ PRATT: dict[TokenType, tuple[str | None, str | None, Precedence, Precedence]] = 
     TokenType.PLUS:          (None,        "binary",   Precedence.PREC_NONE,  Precedence.PREC_TERM),
     TokenType.STAR:          (None,        "binary",   Precedence.PREC_NONE,  Precedence.PREC_FACTOR),
     TokenType.SLASH:         (None,        "binary",   Precedence.PREC_NONE,  Precedence.PREC_FACTOR),
+    TokenType.PERCENT:       (None,        "binary",   Precedence.PREC_NONE,  Precedence.PREC_FACTOR),
     TokenType.BANG:          ("unary",     None,       Precedence.PREC_UNARY, Precedence.PREC_NONE),
     TokenType.BANG_EQUAL:    (None,        "binary",   Precedence.PREC_NONE,  Precedence.PREC_EQUALITY),
     TokenType.EQUAL:         (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
@@ -562,6 +563,8 @@ class Compiler:
                 self.emit(OpCode.OP_MULTIPLY)
             case TokenType.SLASH:
                 self.emit(OpCode.OP_DIVIDE)
+            case TokenType.PERCENT:
+                self.emit(OpCode.OP_MODULO)
             case TokenType.BANG_EQUAL:
                 self.emit(OpCode.OP_EQUAL, OpCode.OP_NOT)
             case TokenType.EQUAL_EQUAL:

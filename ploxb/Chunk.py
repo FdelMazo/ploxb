@@ -18,6 +18,7 @@ class OpCode(IntEnum):
     OP_SUBTRACT = auto()
     OP_MULTIPLY = auto()
     OP_DIVIDE = auto()
+    OP_MODULO = auto()
     OP_NOT = auto()
     OP_EQUAL = auto()
     OP_GREATER = auto()

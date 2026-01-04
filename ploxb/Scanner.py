@@ -77,6 +77,8 @@ class Scanner:
                 self.add_token(TokenType.SEMICOLON)
             case "*":
                 self.add_token(TokenType.STAR)
+            case "%":
+                self.add_token(TokenType.PERCENT)
             case "/":
                 # caso especial para el /
                 # si es un comentario, lo ignoramos
