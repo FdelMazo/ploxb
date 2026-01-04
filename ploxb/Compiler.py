@@ -54,7 +54,6 @@ PRATT: dict[TokenType, tuple[str | None, str | None, Precedence, Precedence]] = 
     TokenType.PERCENT:       (None,        "binary",   Precedence.PREC_NONE,  Precedence.PREC_FACTOR),
     TokenType.BANG:          ("unary",     None,       Precedence.PREC_UNARY, Precedence.PREC_NONE),
     TokenType.BANG_EQUAL:    (None,        "binary",   Precedence.PREC_NONE,  Precedence.PREC_EQUALITY),
-    TokenType.EQUAL:         (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
     TokenType.EQUAL_EQUAL:   (None,        "binary",   Precedence.PREC_NONE,  Precedence.PREC_EQUALITY),
     TokenType.GREATER:       (None,        "binary",   Precedence.PREC_NONE,  Precedence.PREC_COMPARISON),
     TokenType.GREATER_EQUAL: (None,        "binary",   Precedence.PREC_NONE,  Precedence.PREC_COMPARISON),
@@ -62,7 +61,6 @@ PRATT: dict[TokenType, tuple[str | None, str | None, Precedence, Precedence]] = 
     TokenType.LESS_EQUAL:    (None,        "binary",   Precedence.PREC_NONE,  Precedence.PREC_COMPARISON),
     TokenType.AND:           (None,        "logic_and",Precedence.PREC_NONE,  Precedence.PREC_AND),
     TokenType.OR:            (None,        "logic_or", Precedence.PREC_NONE,  Precedence.PREC_OR),
-    TokenType.RETURN:        (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
     TokenType.IDENTIFIER:    ("variable",  None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
     TokenType.EOF:           (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
 }
