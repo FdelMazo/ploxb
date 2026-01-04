@@ -12,10 +12,6 @@ from pathlib import Path
 from platformdirs import user_data_dir
 
 
-history_file = Path(user_data_dir("ploxb", ensure_exists=True)) / ".ploxb_history"
-promptsession: PromptSession[str] = PromptSession(history=FileHistory(history_file))
-
-
 class Ploxb:
     def __init__(self):
         self.vm = VM()
@@ -74,8 +70,15 @@ class Ploxb:
                 return
 
         while True:
+            history_file = (
+                Path(user_data_dir("ploxb", ensure_exists=True)) / ".ploxb_history"
+            )
+            prompt_session: PromptSession[str] = PromptSession(
+                history=FileHistory(history_file)
+            )
+
             try:
-                source = promptsession.prompt("> ")
+                source = prompt_session.prompt("> ")
             except (EOFError, KeyboardInterrupt):
                 break
 
