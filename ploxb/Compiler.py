@@ -356,6 +356,8 @@ class Compiler:
             self.emit(OpCode.OP_POP)
 
         self.context.end_scope()
+        # Tenemos que sacar del stack la variable removida
+        self.emit(OpCode.OP_POP)
 
     # ---------- Utils ---------- #
 
