@@ -64,6 +64,15 @@ class VM:
                         print(f"THE END")
                     return
 
+                # Instrucción de constante
+                case OpCode.OP_CONSTANT:
+                    # La instrucción de constante es "cargar" la constante en memoria:
+                    # es solamente buscar el resultado en el pool de constantes del chunk
+                    # y pushearlo al tope del stack
+                    constant_index = READ()
+                    constant_value = chunk.constants[constant_index]
+                    self.push(constant_value)
+
                 # Instrucciones de valores literales
                 # Directamente pushean el valor al tope del stack
                 case OpCode.OP_NIL:
@@ -74,7 +83,7 @@ class VM:
                     self.push(False)
 
                 # Instrucciones unarias
-                # Popean el último valor del stack, hacen la operacion,
+                # Popean el último valor del stack, hacen la operación,
                 # y pushean el resultado
                 case OpCode.OP_NOT:
                     value = self.pop()
@@ -88,7 +97,7 @@ class VM:
                     self.push(-value)
 
                 # Instrucciones binarias
-                # Popean los últimos dos valores del stack, hacen la operacion,
+                # Popean los últimos dos valores del stack, hacen la operación,
                 # y pushean el resultado
                 case OpCode.OP_ADD:
                     b, a = self.pop(), self.pop()
@@ -142,15 +151,6 @@ class VM:
                             f"Operands of OP_LESS must be numbers, got: `{a} - {b}`"
                         )
                     self.push(a < b)
-
-                # Instrucción de constante
-                case OpCode.OP_CONSTANT:
-                    # La instrucción de constante es "cargar" la constante en memoria:
-                    # es solamente buscar el resultado en el pool de constantes del chunk
-                    # y pushearlo al tope del stack
-                    constant_index = READ()
-                    constant_value = chunk.constants[constant_index]
-                    self.push(constant_value)
 
                 # Instrucción de print
                 # solamente popear el tope del stack y mostrarlo
