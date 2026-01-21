@@ -104,8 +104,10 @@ class Chunk:
                     highbyte, lowbyte = self.bytes[i + 1], self.bytes[i + 2]
                     offset = (highbyte << 8) | lowbyte
                     sign = -1 if byte == OpCode.OP_LOOP else 1
-                    jump_to = i + 3 + (offset * sign)
-                    print(f"{OpCode(byte).name}<{jump_to:04d}>")
+                    # El offset tiene en cuenta que esta instrucción tiene 2 bytes
+                    # para el operando
+                    jump = (offset * sign) + 3
+                    print(f"{OpCode(byte).name}<{'+' if jump > 0 else ''}{jump}>")
                     i += 3
 
                 case _:
