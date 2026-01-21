@@ -240,7 +240,9 @@ class VM:
                     raise RuntimeError(f"UNKNOWN {byte}")
 
             if debug:
-                print(f"STACK {self.stack}\n    | GLOBALS {self.globals}")
+                print(f"STACK {self.stack}")
+                if len(self.globals) > 0:
+                    print(f"    | GLOBALS {self.globals}")
 
     # ---------- Helpers ---------- #
 
