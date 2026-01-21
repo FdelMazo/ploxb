@@ -46,7 +46,7 @@ class CompilerContext:
     def declare(self, name: str):
         if self.scope_depth == 0:
             # No debería pasar nunca!!
-            raise SyntaxError("Declaring a global variable in the local ")
+            raise SyntaxError("Declaring a global variable in the local scope")
         self.locals.append(Local(name, self.scope_depth))
 
     def mark_initialized(self):
