@@ -229,8 +229,8 @@ class VM:
                 # Salto solo si el tope del stack es falso
                 case OpCode.OP_JUMP_IF_FALSE:
                     offset = READ_WORD()
-                    if not self.is_truthy(self.peek()):
-                        self.ip += offset
+                    is_falsey = not self.is_truthy(self.peek())
+                    self.ip += offset * is_falsey
                 # Salta hacia atrás N instrucciones
                 case OpCode.OP_LOOP:
                     offset = READ_WORD()
@@ -247,9 +247,7 @@ class VM:
     # ---------- Helpers ---------- #
 
     def is_truthy(self, value):
-        if value is None or value is False:
-            return False
-        return True
+        return not (value is None or value is False)
 
     def is_number(self, *stack):
         return all(type(value) is int or type(value) is float for value in stack)
