@@ -1,17 +1,17 @@
-from ploxb.Chunk import Chunk, OpCode
+from ploxb.Chunk import OpCode
+from ploxb.Function import Function, CallFrame
 
 from typing import Union
 from termcolor import colored
 
 # Los valores que pueden almacenarse en el stack
-StackValueType = Union[str, float, bool, None]
+StackValueType = Union[str, float, bool, Function, None]
 
 
 class VM:
     def __init__(self):
-        # El instruction pointer
-        # siempre apunta a la siguiente instrucción a ejecutar
-        self.ip = 0
+        self.frames: list[CallFrame] = []
+        self.current_frame: CallFrame | None = None
 
         # El stack de la máquina virtual
         # almacena todos los valores intermedios que se van produciendo
@@ -20,6 +20,19 @@ class VM:
         # Bindings de variables globales
         # todo lo que se almacena en el stack puede utilizarse como variable global
         self.globals: dict[str, StackValueType] = {}
+
+    # Encapsulamos nuestro ip para cuando agreguemos funciones
+    @property
+    def ip(self):
+        if not self.current_frame:
+            raise RuntimeError("DETACHED VM")
+        return self.current_frame.ip
+
+    @ip.setter
+    def ip(self, new_ip):
+        if not self.current_frame:
+            raise RuntimeError("DETACHED VM")
+        self.current_frame.ip = new_ip
 
     def push(self, value: StackValueType):
         # Agrega un resultado al tope del stack
@@ -39,24 +52,32 @@ class VM:
         # O sea, con distance=0, devuelve el tope del stack (sin sacarlo)
         return self.stack[-1 - distance] if len(self.stack) > distance else None
 
-    def run(self, chunk: Chunk, debug=False):
-        # Cada vez que consumo un byte tengo que avanzar mi ip
-        def READ():
-            byte = chunk.bytes[self.ip]
-            self.ip += 1
-            return byte
+    def run(self, function: Function, debug=False):
+        self.push(function)
 
-        # Consumir una WORD es consumir dos bytes
-        # (lo hacemos en big-endian)
-        def READ_WORD():
-            highbyte, lowbyte = READ(), READ()
-            return (highbyte << 8) | lowbyte
+        frame = CallFrame(function, 0)
+        self.frames.append(frame)
+        self.current_frame = self.frames[-1]
 
         if debug:
             print(colored("== RUNTIME ==", "light_green"))
 
-        while self.ip < len(chunk.bytes):
-            debug_prefix = f"{self.ip:04d}"
+        while self.frames:
+            chunk = self.current_frame.function.chunk
+
+            # Cada vez que consumo un byte tengo que avanzar mi ip
+            def READ():
+                byte = chunk.bytes[self.ip]
+                self.ip += 1
+                return byte
+
+            # Consumir una WORD es consumir dos bytes
+            # (lo hacemos en big-endian)
+            def READ_WORD():
+                highbyte, lowbyte = READ(), READ()
+                return (highbyte << 8) | lowbyte
+
+            debug_prefix = f"{'+' * (len(self.frames) - 1)}{self.ip:04d}"
             if debug:
                 print(colored(f"{debug_prefix}|", "light_blue"), end=" ")
 
@@ -67,13 +88,19 @@ class VM:
             match byte:
                 # Final de la ejecución
                 case OpCode.OP_RETURN:
-                    if debug:
-                        print(colored("THE END", "light_blue"))
-                    if len(self.stack):
-                        raise RuntimeError(
-                            "Inconsistent Stack Height: should be empty at exit"
-                        )
-                    return
+                    self.frames.pop()
+                    if not self.frames:
+                        self.pop()
+                        self.pop()
+
+                        if debug:
+                            print(colored("THE END", "light_blue"))
+
+                        if len(self.stack):
+                            raise RuntimeError(
+                                "Inconsistent Stack Height: should be empty at exit"
+                            )
+                        return
 
                 # Instrucción de constante
                 case OpCode.OP_CONSTANT:
@@ -225,13 +252,13 @@ class VM:
                 # indicado en el stack (que viene como operando de la instrucción)
                 case OpCode.OP_SET_LOCAL:
                     slot = READ()
-                    self.stack[slot] = self.peek()
+                    self.stack[self.current_frame.stack_slot + slot] = self.peek()
 
                 # Obtener el valor es solamente re-pushearlo al stack desde su slot
                 # indicado, al tope
                 case OpCode.OP_GET_LOCAL:
                     slot = READ()
-                    var_value = self.stack[slot]
+                    var_value = self.stack[self.current_frame.stack_slot + slot]
                     self.push(var_value)
 
                 # Instrucciones de saltos

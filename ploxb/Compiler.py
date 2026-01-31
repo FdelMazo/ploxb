@@ -1,8 +1,9 @@
 from enum import IntEnum
 from functools import total_ordering
 from ploxb.Scanner import Token, TokenType
-from ploxb.Chunk import Chunk, OpCode
+from ploxb.Chunk import OpCode
 from ploxb.CompilerContext import CompilerContext
+from ploxb.Function import Function
 
 
 @total_ordering
@@ -73,22 +74,27 @@ class Compiler:
         self.tokens: list[Token] = tokens
         # El índice del token actual
         self.current = 0
-        # El chunk resultante de la compilación
-        self.chunk = Chunk()
+        self.function = Function(name=None)
         # El contexto del compilador:
         # cuan anidado esta el scope que estamos compilando,
         # y que variables locales contiene
         self.context = CompilerContext()
 
+    # Encapsulamos nuestro chunk para cuando agreguemos funciones
+    @property
+    def chunk(self):
+        return self.function.chunk
+
     # ---------- Core ---------- #
 
     # Compila todos los statements hasta el final,
     # y emite un return final para tener de centinela
-    def compile(self) -> Chunk:
+    def compile(self) -> Function:
         while not self._is_at_end():
             self.statement()
+        self.emit(OpCode.OP_NIL)
         self.emit(OpCode.OP_RETURN)
-        return self.chunk
+        return self.function
 
     # Agregar bytes al chunk
     def emit(self, *bytes: int):

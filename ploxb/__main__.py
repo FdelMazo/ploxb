@@ -29,27 +29,27 @@ class Ploxb:
 
         compiler = Compiler(tokens)
         try:
-            chunk = compiler.compile()
+            main_function = compiler.compile()
         except Exception as e:
             if debug:
                 traceback.print_exc()
             print(colored(f"Compilation Error: {e}", "light_red"))
             return None
 
-        if not chunk:
+        if not main_function:
             return
 
         if debug:
-            chunk.dis()
+            main_function.chunk.dis()
             print()
 
         try:
-            self.vm.ip = 0
-            self.vm.run(chunk, debug)
+            self.vm.run(main_function, debug)
         except Exception as e:
             if debug:
                 traceback.print_exc()
             self.vm.stack = []
+            self.vm.frames = []
             print(colored(f"Runtime Error: {e}", "light_red"))
             return
 

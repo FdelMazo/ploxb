@@ -26,6 +26,9 @@ class CompilerContext:
         # lo vamos a poder usar como índice del stack de la VM
         self.locals: list[Local] = []
 
+        self.declare("")
+        self.mark_initialized()
+
     def begin_scope(self):
         self.scope_depth += 1
 
@@ -41,9 +44,6 @@ class CompilerContext:
         return vars_removed
 
     def declare(self, name: str):
-        if self.scope_depth == 0:
-            # No debería pasar nunca!!
-            raise SyntaxError("Declaring a global variable in the local scope")
         self.locals.append(Local(name, self.scope_depth))
 
     def mark_initialized(self):
