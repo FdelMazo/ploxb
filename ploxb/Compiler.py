@@ -74,17 +74,22 @@ class Compiler:
         # El índice del token actual
         self.current = 0
         # El chunk resultante de la compilación
-        self.chunk = Chunk()
+        self._chunk = Chunk()
         # El contexto del compilador:
         # cuan anidado esta el scope que estamos compilando,
         # y que variables locales contiene
         self.context = CompilerContext()
 
+    # Encapsulamos nuestro chunk para cuando agreguemos funciones
+    @property
+    def chunk(self):
+        return self._chunk
+
     # ---------- Core ---------- #
 
     # Compila todos los statements hasta el final,
     # y emite un return final para tener de centinela
-    def compile(self):
+    def compile(self) -> Chunk:
         while not self._is_at_end():
             self.statement()
         self.emit(OpCode.OP_RETURN)
