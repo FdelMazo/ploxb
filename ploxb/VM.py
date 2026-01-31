@@ -1,7 +1,10 @@
-from ploxb.Token import ValueType
 from ploxb.Chunk import Chunk, OpCode
 
+from typing import Union
 from termcolor import colored
+
+# Los valores que pueden almacenarse en el stack
+StackValueType = Union[str, float, bool, None]
 
 
 class VM:
@@ -12,10 +15,11 @@ class VM:
 
         # El stack de la máquina virtual
         # almacena todos los valores intermedios que se van produciendo
-        self.stack: list[ValueType] = []
+        self.stack: list[StackValueType] = []
 
         # Bindings de variables globales
-        self.globals: dict[str, ValueType] = {}
+        # todo lo que se almacena en el stack puede utilizarse como variable global
+        self.globals: dict[str, StackValueType] = {}
 
     # Encapsulamos nuestro ip para cuando agreguemos funciones
     @property
@@ -26,7 +30,7 @@ class VM:
     def ip(self, new_ip):
         self._ip = new_ip
 
-    def push(self, value: ValueType):
+    def push(self, value: StackValueType):
         # Agrega un resultado al tope del stack
         self.stack.append(value)
 

@@ -70,7 +70,7 @@ PRATT: dict[TokenType, tuple[str | None, str | None, Precedence, Precedence]] = 
 class Compiler:
     def __init__(self, tokens: list[Token]):
         # Todos los tokens a compilar
-        self.tokens = tokens
+        self.tokens: list[Token] = tokens
         # El índice del token actual
         self.current = 0
         # El chunk resultante de la compilación

@@ -24,7 +24,7 @@ class CompilerContext:
         # orden que son declaradas, funcionando efectivamente como
         # un stack: cuando obtengamos el índice de `self.locals`,
         # lo vamos a poder usar como índice del stack de la VM
-        self.locals = []
+        self.locals: list[Local] = []
 
     def begin_scope(self):
         self.scope_depth += 1

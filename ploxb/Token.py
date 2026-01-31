@@ -1,8 +1,6 @@
 from enum import Enum, auto
 from typing import Union
 
-ValueType = Union[str, float, bool, None]
-
 
 class TokenType(Enum):
     # tokens de un solo carácter
@@ -57,7 +55,7 @@ class TokenType(Enum):
 
 
 # Los literales admitidos son numeros, cadenas, true, false y null
-TokenLiteralType = ValueType
+TokenLiteralType = Union[float, str, bool, None]
 
 
 class Token:

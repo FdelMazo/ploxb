@@ -2,6 +2,10 @@ from enum import IntEnum, auto
 from typing import Union
 from termcolor import colored
 
+# Los valores que pueden almacenarse en el pool de constantes:
+# - todo lo que puede estar contenido por un token que tenga algún valor
+# particular (es decir, todos los tokens que no sean true/false/nil)
+# - nombres de variables
 ConstantType = Union[str, float]
 
 
