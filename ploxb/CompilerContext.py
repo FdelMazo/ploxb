@@ -1,6 +1,3 @@
-from functools import reduce
-
-
 class Local:
     # Una variable local es su nombre, cuan anidada está
     # y saber si ya fue inicializada

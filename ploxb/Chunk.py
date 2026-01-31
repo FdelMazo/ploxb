@@ -73,7 +73,7 @@ class Chunk:
     # para imprimirlo en un formato legible (el nombre de las instrucciones)
     # (es la operación inversa a ensamblar instrucciones assembly a código máquina)
     def dis(self):
-        print(f"== COMPILETIME ==")
+        print("== COMPILETIME ==")
         i = 0
         while i < len(self.bytes):
             byte = self.bytes[i]
@@ -88,7 +88,7 @@ class Chunk:
                     # Instrucciones con operandos: constantes
                     constant_index = self.bytes[i + 1]
                     constant_value = self.constants[constant_index]
-                    if byte == OpCode.OP_CONSTANT and type(constant_value) is str:
+                    if type(constant_value) is str:
                         constant_value = f"'{constant_value}'"
                     print(f"{OpCode(byte).name}<{constant_value}>")
                     i += 2

@@ -56,11 +56,12 @@ class VM:
             return (highbyte << 8) | lowbyte
 
         if debug:
-            print(f"== RUNTIME ==")
+            print("== RUNTIME ==")
 
         while self.ip < len(chunk.bytes):
+            debug_prefix = f"{self.ip:04d}"
             if debug:
-                print(f"{self.ip:04d}|", end=" ")
+                print(f"{debug_prefix}|", end=" ")
 
             byte = READ()
             # TODO: creo que este match esta haciendo muchisimo heavy lifting
@@ -70,7 +71,7 @@ class VM:
                 # Final de la ejecución
                 case OpCode.OP_RETURN:
                     if debug:
-                        print(f"THE END")
+                        print("THE END")
                     if len(self.stack):
                         raise RuntimeError(
                             "Inconsistent Stack Height: should be empty at exit"
@@ -255,7 +256,7 @@ class VM:
             if debug:
                 print(f"STACK {self.stack}")
                 if len(self.globals) > 0:
-                    print(f"    | GLOBALS {self.globals}")
+                    print(f"{' ' * len(debug_prefix)}| GLOBALS {self.globals}")
 
     # ---------- Helpers ---------- #
 
