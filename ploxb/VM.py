@@ -88,9 +88,10 @@ class VM:
             match byte:
                 # Final de la ejecución
                 case OpCode.OP_RETURN:
-                    self.frames.pop()
+                    result = self.pop()
+                    finished_frame = self.frames.pop()
+
                     if not self.frames:
-                        self.pop()
                         self.pop()
 
                         if debug:
@@ -101,6 +102,19 @@ class VM:
                                 "Inconsistent Stack Height: should be empty at exit"
                             )
                         return
+
+                    self.stack = self.stack[: finished_frame.stack_slot]
+                    self.push(result)
+                    self.current_frame = self.frames[-1]
+
+                    if debug:
+                        print(
+                            colored(
+                                f"EXITING CALLFRAME {finished_frame.function}",
+                                "light_magenta",
+                            )
+                        )
+                        continue
 
                 # Instrucción de constante
                 case OpCode.OP_CONSTANT:
@@ -275,6 +289,28 @@ class VM:
                 case OpCode.OP_LOOP:
                     offset = READ_WORD()
                     self.ip -= offset
+
+                # Instrucciones de funciones
+                # Llamados a funciones
+                case OpCode.OP_CALL:
+                    arg_count = READ()
+                    callee = self.peek(arg_count)
+
+                    if not isinstance(callee, Function):
+                        raise RuntimeError("Can only call functions")
+
+                    if callee.arity != arg_count:
+                        raise RuntimeError(
+                            f"Expected {callee.arity} arguments, got {arg_count}"
+                        )
+
+                    fn_callframe = CallFrame(callee, len(self.stack) - arg_count - 1)
+                    self.frames.append(fn_callframe)
+                    self.current_frame = self.frames[-1]
+
+                    if debug:
+                        print(colored(f"ENTERING CALLFRAME {callee}", "light_magenta"))
+                        continue
 
                 case _:
                     raise RuntimeError(f"UNKNOWN {byte}")

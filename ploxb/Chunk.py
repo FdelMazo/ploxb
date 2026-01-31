@@ -33,6 +33,10 @@ class OpCode(IntEnum):
     OP_GREATER = auto()
     OP_LESS = auto()
 
+    # Instrucciones con operandos: valores
+    # después del opcode, hay un byte que es directamente un número
+    OP_CALL = auto()
+
     # Instrucciones con operandos: constantes
     # después del opcode, hay un byte que es el índice de la constante referenciada
     OP_CONSTANT = auto()
@@ -90,6 +94,12 @@ class Chunk:
                 end=" ",
             )
             match byte:
+                case OpCode.OP_CALL:
+                    # Instrucciones con operandos: valores
+                    value = self.bytes[i + 1]
+                    print(colored(f"{OpCode(byte).name}<{value}>", "light_blue"))
+                    i += 2
+
                 case (
                     OpCode.OP_CONSTANT
                     | OpCode.OP_DEFINE_GLOBAL

@@ -42,7 +42,7 @@ class Precedence(IntEnum):
 # Es muy flexible! Agregar operadores es una fila nueva, y cambiár la gramática es solamente editar una celda
 PRATT: dict[TokenType, tuple[str | None, str | None, Precedence, Precedence]] = {
     # TokenType              (prefix_fn,   infix_fn,   prefix_precedence,     infix_precedence)
-    TokenType.LEFT_PAREN:    ("grouping",  None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
+    TokenType.LEFT_PAREN:    ("grouping",  "call",     Precedence.PREC_NONE,  Precedence.PREC_CALL),
     TokenType.RIGHT_PAREN:   (None,        None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
     TokenType.NUMBER:        ("value",     None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
     TokenType.STRING:        ("value",     None,       Precedence.PREC_NONE,  Precedence.PREC_NONE),
@@ -111,6 +111,8 @@ class Compiler:
     def statement(self):
         if self._match(TokenType.FUN):
             self.fun_declaration()
+        elif self._match(TokenType.RETURN):
+            self.return_statement()
         elif self._match(TokenType.VAR):
             self.var_declaration()
         elif self._match(TokenType.PRINT):
@@ -219,6 +221,19 @@ class Compiler:
         if not is_local:
             fun_index = self.chunk.add_constant(fun_name.lexeme)
             self.emit(OpCode.OP_DEFINE_GLOBAL, fun_index)
+
+    def return_statement(self):
+        if not self.enclosing:
+            raise SyntaxError("Cant return from toplevel")
+
+        if self._match(TokenType.SEMICOLON):
+            self.emit(OpCode.OP_NIL)
+        else:
+            self.expression()
+            if not self._match(TokenType.SEMICOLON):
+                raise SyntaxError("Expected ; after return")
+
+        self.emit(OpCode.OP_RETURN)
 
     # Parsea una declaración de variable
     def var_declaration(self):
@@ -720,6 +735,24 @@ class Compiler:
             # Si no, solamente me interesa el valor de la variable
             # y tengo que emitir una instrucción de get
             self.emit(get_op, arg)
+
+    def call(self, _=None):
+        args_count = 0
+
+        while (
+            not self._is_at_end()
+            and not self._lookahead().token_type == TokenType.RIGHT_PAREN
+        ):
+            self.expression()
+            args_count += 1
+
+            if not self._match(TokenType.COMMA):
+                break
+
+        if not self._match(TokenType.RIGHT_PAREN):
+            raise SyntaxError("Expected ')' after arguments")
+
+        self.emit(OpCode.OP_CALL, args_count)
 
     # ---------- Helpers ---------- #
 
