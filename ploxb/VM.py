@@ -1,6 +1,8 @@
 from ploxb.Token import ValueType
 from ploxb.Chunk import Chunk, OpCode
 
+from termcolor import colored
+
 
 class VM:
     def __init__(self):
@@ -56,12 +58,12 @@ class VM:
             return (highbyte << 8) | lowbyte
 
         if debug:
-            print("== RUNTIME ==")
+            print(colored("== RUNTIME ==", "light_green"))
 
         while self.ip < len(chunk.bytes):
             debug_prefix = f"{self.ip:04d}"
             if debug:
-                print(f"{debug_prefix}|", end=" ")
+                print(colored(f"{debug_prefix}|", "light_blue"), end=" ")
 
             byte = READ()
             # TODO: creo que este match esta haciendo muchisimo heavy lifting
@@ -71,7 +73,7 @@ class VM:
                 # Final de la ejecución
                 case OpCode.OP_RETURN:
                     if debug:
-                        print("THE END")
+                        print(colored("THE END", "light_blue"))
                     if len(self.stack):
                         raise RuntimeError(
                             "Inconsistent Stack Height: should be empty at exit"
@@ -170,7 +172,9 @@ class VM:
                 # solamente popear el tope del stack y mostrarlo
                 case OpCode.OP_PRINT:
                     if debug:
-                        print(f"OUTPUT\n{self.pop()}")
+                        print(
+                            colored(f"SCREEN OUTPUT {self.pop()}", "light_magenta"),
+                        )
                         continue
                     else:
                         print(self.pop())
@@ -254,9 +258,14 @@ class VM:
                     raise RuntimeError(f"UNKNOWN {byte}")
 
             if debug:
-                print(f"STACK {self.stack}")
+                print(colored(f"STACK {self.stack}", "light_blue"))
                 if len(self.globals) > 0:
-                    print(f"{' ' * len(debug_prefix)}| GLOBALS {self.globals}")
+                    print(
+                        colored(
+                            f"{' ' * len(debug_prefix)}| GLOBALS {self.globals}",
+                            "light_blue",
+                        )
+                    )
 
     # ---------- Helpers ---------- #
 

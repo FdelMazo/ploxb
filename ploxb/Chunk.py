@@ -1,5 +1,6 @@
 from enum import IntEnum, auto
 from typing import Union
+from termcolor import colored
 
 ConstantType = Union[str, float]
 
@@ -73,11 +74,14 @@ class Chunk:
     # para imprimirlo en un formato legible (el nombre de las instrucciones)
     # (es la operación inversa a ensamblar instrucciones assembly a código máquina)
     def dis(self):
-        print("== COMPILETIME ==")
+        print(colored("== COMPILETIME ==", "light_green"))
         i = 0
         while i < len(self.bytes):
             byte = self.bytes[i]
-            print(f"{i:04d}|", end=" ")
+            print(
+                colored(f"{i:04d}|", "light_blue"),
+                end=" ",
+            )
             match byte:
                 case (
                     OpCode.OP_CONSTANT
@@ -90,13 +94,15 @@ class Chunk:
                     constant_value = self.constants[constant_index]
                     if type(constant_value) is str:
                         constant_value = f"'{constant_value}'"
-                    print(f"{OpCode(byte).name}<{constant_value}>")
+                    print(
+                        colored(f"{OpCode(byte).name}<{constant_value}>", "light_blue")
+                    )
                     i += 2
 
                 case OpCode.OP_GET_LOCAL | OpCode.OP_SET_LOCAL:
                     # Instrucciones con operandos: slots
                     var_index = self.bytes[i + 1]
-                    print(f"{OpCode(byte).name}<@{var_index}>")
+                    print(colored(f"{OpCode(byte).name}<@{var_index}>", "light_blue"))
                     i += 2
 
                 case OpCode.OP_JUMP | OpCode.OP_JUMP_IF_FALSE | OpCode.OP_LOOP:
@@ -107,12 +113,17 @@ class Chunk:
                     # El offset tiene en cuenta que esta instrucción tiene 2 bytes
                     # para el operando
                     jump = (offset * sign) + 3
-                    print(f"{OpCode(byte).name}<{'+' if jump > 0 else ''}{jump}>")
+                    print(
+                        colored(
+                            f"{OpCode(byte).name}<{'+' if jump > 0 else ''}{jump}>",
+                            "light_blue",
+                        )
+                    )
                     i += 3
 
                 case _:
                     # Instrucciones sin operandos
-                    print(OpCode(byte).name)
+                    print(colored(OpCode(byte).name, "light_blue"))
                     i += 1
 
-        print(f"CONST {self.constants}")
+        print(colored(f"CONST {self.constants}", "light_blue"))

@@ -10,6 +10,7 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from pathlib import Path
 from platformdirs import user_data_dir
+from termcolor import colored
 
 
 class Ploxb:
@@ -23,7 +24,7 @@ class Ploxb:
         except Exception as e:
             if debug:
                 traceback.print_exc()
-            print(f"Scanning Error: {e}")
+            print(colored(f"Scanning Error: {e}", "light_red"))
             return None
 
         compiler = Compiler(tokens)
@@ -32,7 +33,7 @@ class Ploxb:
         except Exception as e:
             if debug:
                 traceback.print_exc()
-            print(f"Compilation Error: {e}")
+            print(colored(f"Compilation Error: {e}", "light_red"))
             return None
 
         if not chunk:
@@ -49,7 +50,7 @@ class Ploxb:
             if debug:
                 traceback.print_exc()
             self.vm.stack = []
-            print(f"Runtime Error: {e}")
+            print(colored(f"Runtime Error: {e}", "light_red"))
             return
 
     def main(self):
