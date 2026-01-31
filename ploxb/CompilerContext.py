@@ -10,6 +10,12 @@ class Local:
         return f"{self.name}"
 
 
+class Upvalue:
+    def __init__(self, index: int, is_local: bool):
+        self.index = index
+        self.is_local = is_local
+
+
 class CompilerContext:
     def __init__(self):
         # El contexto del compilador se ocupa
@@ -25,6 +31,7 @@ class CompilerContext:
         # un stack: cuando obtengamos el índice de `self.locals`,
         # lo vamos a poder usar como índice del stack de la VM
         self.locals: list[Local] = []
+        self.upvalues: list[Upvalue] = []
 
         self.declare("")
         self.mark_initialized()
@@ -51,3 +58,6 @@ class CompilerContext:
         # Sirve para atrapar referencias en su misma declaración
         # (es decir, `var x = x` tiene que devolver error)
         self.locals[-1].initialized = True
+
+    def add_upvalue(self, index: int, is_local: bool):
+        self.upvalues.append(Upvalue(index, is_local))

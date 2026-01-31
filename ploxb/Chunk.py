@@ -1,5 +1,5 @@
 from enum import IntEnum, auto
-from typing import Union, TYPE_CHECKING
+from typing import Union, TYPE_CHECKING, cast
 from termcolor import colored
 
 if TYPE_CHECKING:
@@ -49,6 +49,18 @@ class OpCode(IntEnum):
     # sobre el stack de la VM (no sobre el pool de constantes!)
     OP_GET_LOCAL = auto()
     OP_SET_LOCAL = auto()
+    OP_GET_UPVALUE = auto()
+    OP_SET_UPVALUE = auto()
+    OP_CLOSE_UPVALUE = auto()
+
+    # Instrucciones con operandos variables: funciones con sus upvalues
+    # después del opcode, el primer byte es el índice de la función en el pool de constantes
+    # después de eso, viene una secuencia (variable) de pares de bytes:
+    # - el primer byte indica si la variable es local (byte=1) o si es un upvalue (byte=0)
+    # - el segundo byte es el slot de la variable en sí
+    # si la variable es local, la busca en el stack de la funcion que lo encierra
+    # si la variable es un upvalue, la va a buscar a los upvalues del closure
+    OP_CLOSURE = auto()
 
     # Instrucciones con operandos: saltos
     # después del opcode, hay dos bytes que forman un entero de 16 bits
@@ -116,11 +128,40 @@ class Chunk:
                     )
                     i += 2
 
-                case OpCode.OP_GET_LOCAL | OpCode.OP_SET_LOCAL:
+                case (
+                    OpCode.OP_GET_LOCAL
+                    | OpCode.OP_SET_LOCAL
+                    | OpCode.OP_GET_UPVALUE
+                    | OpCode.OP_SET_UPVALUE
+                ):
                     # Instrucciones con operandos: slots
                     var_index = self.bytes[i + 1]
                     print(colored(f"{OpCode(byte).name}<@{var_index}>", "light_blue"))
                     i += 2
+
+                case OpCode.OP_CLOSURE:
+                    # Instrucciones con operandos: funciones con sus upvalues
+                    fun_index = self.bytes[i + 1]
+                    fun = cast("Function", self.constants[fun_index])
+
+                    upvalues = []
+                    for idx in range(fun.upvalue_count):
+                        # i + 2 -> saltearse el opcode y la función
+                        # idx * 2 -> cada upvalue ocupa 2 bytes (1 para el tipo, otro para el índice)
+                        slot = (i + 2) + idx * 2
+                        is_local, upvidx = self.bytes[slot] == 1, self.bytes[slot + 1]
+                        upvalues.append(f"{'L' if is_local else 'U'}{upvidx}")
+
+                    print(
+                        colored(
+                            f"{OpCode(byte).name}<fn {fun.name}({', '.join(upvalues)})>",
+                            "light_blue",
+                        )
+                    )
+
+                    # Saltearse el opcode, la función y los upvalues
+                    i += 2
+                    i += len(upvalues) * 2
 
                 case OpCode.OP_JUMP | OpCode.OP_JUMP_IF_FALSE | OpCode.OP_LOOP:
                     # Instrucciones con operandos: saltos

@@ -3,7 +3,7 @@ from typing import Optional
 from functools import total_ordering
 from ploxb.Scanner import Token, TokenType
 from ploxb.Chunk import OpCode
-from ploxb.CompilerContext import CompilerContext
+from ploxb.CompilerContext import CompilerContext, Upvalue
 from ploxb.Function import Function
 
 
@@ -216,7 +216,10 @@ class Compiler:
         self.current = compiler.current
 
         fun_index = self.chunk.add_constant(compiled_function)
-        self.emit(OpCode.OP_CONSTANT, fun_index)
+        self.emit(OpCode.OP_CLOSURE, fun_index)
+
+        for upvalue in compiler.context.upvalues:
+            self.emit(1 if upvalue.is_local else 0, upvalue.index)
 
         if not is_local:
             fun_index = self.chunk.add_constant(fun_name.lexeme)
@@ -483,6 +486,31 @@ class Compiler:
         # una variable resuelta en runtime. AKA: una variable global
         return None
 
+    def resolve_upvalue(self, var_name):
+        if self.enclosing is None:
+            return None
+
+        local = self.enclosing.resolve_local(var_name)
+        if local is not None:
+            return self.add_upvalue(local, is_local=True)
+
+        upvalue = self.enclosing.resolve_upvalue(var_name)
+        if upvalue is not None:
+            return self.add_upvalue(upvalue, is_local=False)
+
+        return None
+
+    def add_upvalue(self, index: int, is_local: bool) -> int:
+        upvalue_count = len(self.context.upvalues)
+
+        for i, upvalue in enumerate(self.context.upvalues):
+            if upvalue.index == index and upvalue.is_local == is_local:
+                return i
+
+        self.context.upvalues.append(Upvalue(index, is_local))
+        self.function.upvalue_count = len(self.context.upvalues)
+        return upvalue_count
+
     # Para emitir a donde se hace el salto, primero dejamos unos bytes vacios
     # en su lugar y cuando sepamos el valor volvemos a ponerlo
     def emit_jump_operand(self):
@@ -714,12 +742,12 @@ class Compiler:
         # - en una variable global, es el indice sobre el pool de constantes
         # lo cual me va a referenciar al nombre de la variable, y con eso
         # poder pedirle el valor a la tabla de globales
-        arg = self.resolve_local(var_name)
-        is_local = arg is not None
-
-        if is_local:
+        if (arg := self.resolve_local(var_name)) is not None:
             get_op = OpCode.OP_GET_LOCAL
             set_op = OpCode.OP_SET_LOCAL
+        elif (arg := self.resolve_upvalue(var_name)) is not None:
+            get_op = OpCode.OP_GET_UPVALUE
+            set_op = OpCode.OP_SET_UPVALUE
         else:
             arg = self.chunk.add_constant(var_name.lexeme)
             get_op = OpCode.OP_GET_GLOBAL

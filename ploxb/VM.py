@@ -1,11 +1,11 @@
 from ploxb.Chunk import OpCode
-from ploxb.Function import Function, CallFrame
+from ploxb.Function import Function, CallFrame, Closure, ClosureUpValue
 
 from typing import Union
 from termcolor import colored
 
 # Los valores que pueden almacenarse en el stack
-StackValueType = Union[str, float, bool, Function, None]
+StackValueType = Union[str, float, bool, Closure, None]
 
 
 class VM:
@@ -20,6 +20,7 @@ class VM:
         # Bindings de variables globales
         # todo lo que se almacena en el stack puede utilizarse como variable global
         self.globals: dict[str, StackValueType] = {}
+        self.open_upvalues: list[ClosureUpValue] = []
 
     # Encapsulamos nuestro ip para cuando agreguemos funciones
     @property
@@ -53,9 +54,10 @@ class VM:
         return self.stack[-1 - distance] if len(self.stack) > distance else None
 
     def run(self, function: Function, debug=False):
-        self.push(function)
+        main_script = Closure(function)
+        self.push(main_script)
 
-        frame = CallFrame(function, 0)
+        frame = CallFrame(main_script, 0)
         self.frames.append(frame)
         self.current_frame = self.frames[-1]
 
@@ -63,7 +65,7 @@ class VM:
             print(colored("== RUNTIME ==", "light_green"))
 
         while self.frames:
-            chunk = self.current_frame.function.chunk
+            chunk = self.current_frame.closure.function.chunk
 
             # Cada vez que consumo un byte tengo que avanzar mi ip
             def READ():
@@ -90,6 +92,7 @@ class VM:
                 case OpCode.OP_RETURN:
                     result = self.pop()
                     finished_frame = self.frames.pop()
+                    self.close_upvalues(finished_frame.stack_slot)
 
                     if not self.frames:
                         self.pop()
@@ -110,7 +113,7 @@ class VM:
                     if debug:
                         print(
                             colored(
-                                f"EXITING CALLFRAME {finished_frame.function}",
+                                f"EXITING CALLFRAME {finished_frame.closure.function}",
                                 "light_magenta",
                             )
                         )
@@ -275,6 +278,25 @@ class VM:
                     var_value = self.stack[self.current_frame.stack_slot + slot]
                     self.push(var_value)
 
+                # Instrucciones de upvalues
+                case OpCode.OP_GET_UPVALUE:
+                    slot = READ()
+                    upvalue = self.current_frame.closure.upvalues[slot]
+                    if upvalue.closed is not None:
+                        self.push(upvalue.closed)
+                    else:
+                        self.push(self.stack[upvalue.location])
+                case OpCode.OP_SET_UPVALUE:
+                    slot = READ()
+                    upvalue = self.current_frame.closure.upvalues[slot]
+                    if upvalue.closed is not None:
+                        upvalue.closed = self.peek()
+                    else:
+                        self.stack[upvalue.location] = self.peek()
+                case OpCode.OP_CLOSE_UPVALUE:
+                    self.close_upvalues(len(self.stack) - 1)
+                    self.pop()
+
                 # Instrucciones de saltos
                 # Salto incondicional
                 case OpCode.OP_JUMP:
@@ -294,23 +316,48 @@ class VM:
                 # Llamados a funciones
                 case OpCode.OP_CALL:
                     arg_count = READ()
-                    callee = self.peek(arg_count)
+                    closure = self.peek(arg_count)
 
-                    if not isinstance(callee, Function):
-                        raise RuntimeError("Can only call functions")
+                    if not isinstance(closure, Closure):
+                        raise RuntimeError("Can only call functions inside closures")
 
-                    if callee.arity != arg_count:
+                    if closure.function.arity != arg_count:
                         raise RuntimeError(
-                            f"Expected {callee.arity} arguments, got {arg_count}"
+                            f"Expected {closure.function.arity} arguments, got {arg_count}"
                         )
 
-                    fn_callframe = CallFrame(callee, len(self.stack) - arg_count - 1)
+                    fn_callframe = CallFrame(closure, len(self.stack) - arg_count - 1)
                     self.frames.append(fn_callframe)
                     self.current_frame = self.frames[-1]
 
                     if debug:
-                        print(colored(f"ENTERING CALLFRAME {callee}", "light_magenta"))
+                        print(
+                            colored(
+                                f"ENTERING CALLFRAME {closure.function}",
+                                "light_magenta",
+                            )
+                        )
                         continue
+
+                case OpCode.OP_CLOSURE:
+                    fun_index = READ()
+                    fun = chunk.constants[fun_index]
+                    closure = Closure(fun)
+                    self.push(closure)
+
+                    for _ in range(fun.upvalue_count):
+                        is_local = READ() == 1
+                        index = READ()
+                        if is_local:
+                            closure.upvalues.append(
+                                self.capture_upvalue(
+                                    self.current_frame.stack_slot + index
+                                )
+                            )
+                        else:
+                            closure.upvalues.append(
+                                self.current_frame.closure.upvalues[index]
+                            )
 
                 case _:
                     raise RuntimeError(f"UNKNOWN {byte}")
@@ -324,6 +371,37 @@ class VM:
                             "light_blue",
                         )
                     )
+
+    # ---------- Helpers de Closures ---------- #
+
+    def capture_upvalue(self, location: int) -> ClosureUpValue:
+        for upvalue in self.open_upvalues:
+            if upvalue.location and upvalue.location == location:
+                return upvalue
+
+        created_upvalue = ClosureUpValue(location)
+
+        insert_pos = 0
+        for i, upvalue in enumerate(self.open_upvalues):
+            if not upvalue.location or upvalue.location < location:
+                insert_pos = i
+                break
+        else:
+            insert_pos = len(self.open_upvalues)
+
+        self.open_upvalues.insert(insert_pos, created_upvalue)
+        return created_upvalue
+
+    def close_upvalues(self, last: int):
+        i = 0
+        while i < len(self.open_upvalues):
+            upvalue = self.open_upvalues[i]
+            if upvalue.location and upvalue.location >= last:
+                upvalue.closed = self.stack[upvalue.location]
+                upvalue.location = None
+                i += 1
+            else:
+                break
 
     # ---------- Helpers ---------- #
 

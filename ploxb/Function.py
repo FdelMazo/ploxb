@@ -1,6 +1,10 @@
 from ploxb.Chunk import Chunk
+from typing import TYPE_CHECKING, Optional
 
 from termcolor import colored
+
+if TYPE_CHECKING:
+    from ploxb.VM import StackValueType
 
 
 class Function:
@@ -8,6 +12,7 @@ class Function:
         self.chunk = Chunk()
         self.name = name
         self.arity = 0
+        self.upvalue_count = 0
 
     def dis(self):
         if not self.name:
@@ -26,8 +31,26 @@ class Function:
         return f"<fn {self.name}()>"
 
 
-class CallFrame:
-    def __init__(self, function: Function, stack_slot: int):
+class ClosureUpValue:
+    def __init__(self, location: int | None):
+        self.location = location
+        self.closed: Optional["StackValueType"] = None
+
+    def __repr__(self):
+        return f"{self.location}-{self.closed}"
+
+
+class Closure:
+    def __init__(self, function: Function):
         self.function = function
+        self.upvalues: list["ClosureUpValue"] = []
+
+    def __repr__(self):
+        return f"{str(self.function)}+{str(self.upvalues)}"
+
+
+class CallFrame:
+    def __init__(self, closure: Closure, stack_slot: int):
+        self.closure = closure
         self.ip = 0
         self.stack_slot = stack_slot
