@@ -11,7 +11,7 @@ class VM:
     def __init__(self):
         # El instruction pointer
         # siempre apunta a la siguiente instrucción a ejecutar
-        self._ip = 0
+        self.ip = 0
 
         # El stack de la máquina virtual
         # almacena todos los valores intermedios que se van produciendo
@@ -20,15 +20,6 @@ class VM:
         # Bindings de variables globales
         # todo lo que se almacena en el stack puede utilizarse como variable global
         self.globals: dict[str, StackValueType] = {}
-
-    # Encapsulamos nuestro ip para cuando agreguemos funciones
-    @property
-    def ip(self):
-        return self._ip
-
-    @ip.setter
-    def ip(self, new_ip):
-        self._ip = new_ip
 
     def push(self, value: StackValueType):
         # Agrega un resultado al tope del stack
