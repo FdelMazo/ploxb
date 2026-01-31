@@ -40,7 +40,7 @@ class Ploxb:
             return
 
         if debug:
-            main_function.chunk.dis()
+            main_function.dis()
             print()
 
         try:

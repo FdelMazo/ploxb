@@ -82,7 +82,6 @@ class Chunk:
     # para imprimirlo en un formato legible (el nombre de las instrucciones)
     # (es la operación inversa a ensamblar instrucciones assembly a código máquina)
     def dis(self):
-        print(colored("== COMPILETIME ==", "light_green"))
         i = 0
         while i < len(self.bytes):
             byte = self.bytes[i]
