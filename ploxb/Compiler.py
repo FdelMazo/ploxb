@@ -583,40 +583,6 @@ class Compiler:
             case _:
                 raise SyntaxError(f"Unexpected binary operator: {operator}")
 
-    # Parsea un identificador que es el nombre de una variable,
-    # para resolver al valor de la variable
-    def variable(self, valid_target: bool):
-        var_name = self._previous()
-
-        # el operador de la instrucción (`arg`) depende de si
-        # la variable es local o global
-        # - en una variable local, es el índice sobre el stack de la VM,
-        # para poder acceder directamente al valor
-        # - en una variable global, es el indice sobre el pool de constantes
-        # lo cual me va a referenciar al nombre de la variable, y con eso
-        # poder pedirle el valor a la tabla de globales
-        arg = self.resolve_local(var_name)
-        is_local = arg is not None
-
-        if is_local:
-            get_op = OpCode.OP_GET_LOCAL
-            set_op = OpCode.OP_SET_LOCAL
-        else:
-            arg = self.chunk.add_constant(var_name.lexeme)
-            get_op = OpCode.OP_GET_GLOBAL
-            set_op = OpCode.OP_SET_GLOBAL
-
-        if valid_target and self._match(TokenType.EQUAL):
-            # Si me cruzo un igual, estoy en una asignación, por lo que
-            # tengo que emitir una instrucción de set, y tengo que
-            # compilar el nuevo valor de la variable
-            self.expression()
-            self.emit(set_op, arg)
-        else:
-            # Si no, solamente me interesa el valor de la variable
-            # y tengo que emitir una instrucción de get
-            self.emit(get_op, arg)
-
     # Parsea un and
     def logic_and(self, _):
         # A esta altura, el operador de la izquierda ya se compiló y
@@ -650,6 +616,40 @@ class Compiler:
         self.emit(OpCode.OP_POP)
         self.parse(Precedence.PREC_OR)
         self.patch_jump(end_jump)
+
+    # Parsea un identificador que es el nombre de una variable,
+    # para resolver al valor de la variable
+    def variable(self, valid_target: bool):
+        var_name = self._previous()
+
+        # el operador de la instrucción (`arg`) depende de si
+        # la variable es local o global
+        # - en una variable local, es el índice sobre el stack de la VM,
+        # para poder acceder directamente al valor
+        # - en una variable global, es el indice sobre el pool de constantes
+        # lo cual me va a referenciar al nombre de la variable, y con eso
+        # poder pedirle el valor a la tabla de globales
+        arg = self.resolve_local(var_name)
+        is_local = arg is not None
+
+        if is_local:
+            get_op = OpCode.OP_GET_LOCAL
+            set_op = OpCode.OP_SET_LOCAL
+        else:
+            arg = self.chunk.add_constant(var_name.lexeme)
+            get_op = OpCode.OP_GET_GLOBAL
+            set_op = OpCode.OP_SET_GLOBAL
+
+        if valid_target and self._match(TokenType.EQUAL):
+            # Si me cruzo un igual, estoy en una asignación, por lo que
+            # tengo que emitir una instrucción de set, y tengo que
+            # compilar el nuevo valor de la variable
+            self.expression()
+            self.emit(set_op, arg)
+        else:
+            # Si no, solamente me interesa el valor de la variable
+            # y tengo que emitir una instrucción de get
+            self.emit(get_op, arg)
 
     # ---------- Helpers ---------- #
 
