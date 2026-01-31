@@ -48,6 +48,7 @@ class Ploxb:
         except Exception as e:
             if debug:
                 traceback.print_exc()
+            self.vm.stack = []
             print(f"Runtime Error: {e}")
             return
 

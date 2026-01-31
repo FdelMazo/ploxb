@@ -71,6 +71,10 @@ class VM:
                 case OpCode.OP_RETURN:
                     if debug:
                         print(f"THE END")
+                    if len(self.stack):
+                        raise RuntimeError(
+                            "Inconsistent Stack Height: should be empty at exit"
+                        )
                     return
 
                 # Instrucción de constante
