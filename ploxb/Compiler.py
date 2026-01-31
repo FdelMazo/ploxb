@@ -1,4 +1,5 @@
 from enum import IntEnum
+from typing import Optional
 from functools import total_ordering
 from ploxb.Scanner import Token, TokenType
 from ploxb.Chunk import OpCode
@@ -69,7 +70,7 @@ PRATT: dict[TokenType, tuple[str | None, str | None, Precedence, Precedence]] = 
 
 
 class Compiler:
-    def __init__(self, tokens: list[Token]):
+    def __init__(self, tokens: list[Token], enclosing: Optional["Compiler"] = None):
         # Todos los tokens a compilar
         self.tokens: list[Token] = tokens
         # El índice del token actual
@@ -79,6 +80,7 @@ class Compiler:
         # cuan anidado esta el scope que estamos compilando,
         # y que variables locales contiene
         self.context = CompilerContext()
+        self.enclosing = enclosing
 
     # Encapsulamos nuestro chunk para cuando agreguemos funciones
     @property
@@ -107,7 +109,9 @@ class Compiler:
     # como todos estan avisados por su primer token,
     # con chequear ese ya se puede decidir que hacer
     def statement(self):
-        if self._match(TokenType.VAR):
+        if self._match(TokenType.FUN):
+            self.fun_declaration()
+        elif self._match(TokenType.VAR):
             self.var_declaration()
         elif self._match(TokenType.PRINT):
             self.print_statement()
@@ -150,6 +154,71 @@ class Compiler:
         vars_removed = self.context.end_scope()
         for _ in range(vars_removed):
             self.emit(OpCode.OP_POP)
+
+    # Parsea una declaración de una función
+    def fun_declaration(self):
+        is_local = self.context.scope_depth > 0
+
+        if not self._match(TokenType.IDENTIFIER):
+            raise SyntaxError("Expected function name after `fun`")
+
+        fun_name = self._previous()
+
+        if is_local:
+            for local in reversed(self.context.locals):
+                if local.initialized and local.depth < self.context.scope_depth:
+                    break
+
+                if local.name == fun_name.lexeme:
+                    raise SyntaxError(f"Function {fun_name.lexeme} already exists")
+
+            self.context.declare(fun_name.lexeme)
+            self.context.mark_initialized()
+
+        compiler = Compiler(self.tokens, enclosing=self)
+        compiler.current = self.current
+        compiler.function = Function(fun_name.lexeme)
+        compiler.context = CompilerContext()
+        compiler.context.begin_scope()
+
+        if not compiler._match(TokenType.LEFT_PAREN):
+            raise SyntaxError(f"Expected '(' after function name '{fun_name}'")
+
+        while (
+            not compiler._is_at_end()
+            and not compiler._lookahead().token_type == TokenType.RIGHT_PAREN
+        ):
+            if not compiler._match(TokenType.IDENTIFIER):
+                raise SyntaxError("Expected parameter name")
+
+            param_name = compiler._previous()
+            compiler.context.declare(param_name.lexeme)
+            compiler.context.mark_initialized()
+            compiler.function.arity += 1
+
+            if not compiler._match(TokenType.COMMA):
+                break
+
+        if not compiler._match(TokenType.RIGHT_PAREN):
+            raise SyntaxError("Expected ')' after parameters")
+
+        if not compiler._match(TokenType.LEFT_BRACE):
+            raise SyntaxError("Expected '{{' before function body")
+
+        compiler.block()
+        compiler.emit(OpCode.OP_NIL)
+        compiler.emit(OpCode.OP_RETURN)
+
+        compiled_function = compiler.function
+
+        self.current = compiler.current
+
+        fun_index = self.chunk.add_constant(compiled_function)
+        self.emit(OpCode.OP_CONSTANT, fun_index)
+
+        if not is_local:
+            fun_index = self.chunk.add_constant(fun_name.lexeme)
+            self.emit(OpCode.OP_DEFINE_GLOBAL, fun_index)
 
     # Parsea una declaración de variable
     def var_declaration(self):
