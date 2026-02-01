@@ -35,6 +35,8 @@ class OpCode(IntEnum):
 
     # Instrucciones con operandos: valores
     # después del opcode, hay un byte que es directamente un número
+    # en el caso de OP_CALL, el valor es directamente la cantidad de argumentos
+    # que se le pasaron a la función en la invocación, para chequear contra su aridad
     OP_CALL = auto()
 
     # Instrucciones con operandos: constantes
@@ -133,6 +135,7 @@ class Chunk:
                     | OpCode.OP_SET_LOCAL
                     | OpCode.OP_GET_UPVALUE
                     | OpCode.OP_SET_UPVALUE
+                    | OpCode.OP_CLOSE_UPVALUE
                 ):
                     # Instrucciones con operandos: slots
                     var_index = self.bytes[i + 1]

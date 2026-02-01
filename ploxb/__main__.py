@@ -50,6 +50,7 @@ class Ploxb:
                 traceback.print_exc()
             self.vm.stack = []
             self.vm.frames = []
+            self.vm.open_upvalues = []
             print(colored(f"Runtime Error: {e}", "light_red"))
             return
 

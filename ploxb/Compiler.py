@@ -3,7 +3,7 @@ from typing import Optional
 from functools import total_ordering
 from ploxb.Scanner import Token, TokenType
 from ploxb.Chunk import OpCode
-from ploxb.CompilerContext import CompilerContext, Upvalue
+from ploxb.CompilerContext import CompilerContext
 from ploxb.Function import Function
 
 
@@ -70,19 +70,28 @@ PRATT: dict[TokenType, tuple[str | None, str | None, Precedence, Precedence]] = 
 
 
 class Compiler:
-    def __init__(self, tokens: list[Token], enclosing: Optional["Compiler"] = None):
+    def __init__(
+        self,
+        tokens: list[Token],
+        fun_name: str | None = None,
+        enclosing: Optional["Compiler"] = None,
+    ):
         # Todos los tokens a compilar
         self.tokens: list[Token] = tokens
         # El índice del token actual
         self.current = 0
-        self.function = Function(name=None)
+        # La función actual siendo compilada.
+        # Si no tiene nombre, es la función main
+        self.function = Function(name=fun_name)
+        # El enclosing del compilador: cada función tiene una referencia
+        # al compilador padre, hasta llegar a main (sin padre)
+        self.enclosing = enclosing
         # El contexto del compilador:
         # cuan anidado esta el scope que estamos compilando,
-        # y que variables locales contiene
+        # y que variables locales y upvalues contiene
         self.context = CompilerContext()
-        self.enclosing = enclosing
 
-    # Encapsulamos nuestro chunk para cuando agreguemos funciones
+    # Devuelve el chunk de la función actual
     @property
     def chunk(self):
         return self.function.chunk
@@ -90,10 +99,14 @@ class Compiler:
     # ---------- Core ---------- #
 
     # Compila todos los statements hasta el final,
-    # y emite un return final para tener de centinela
+    # y emite un return final para tener de centinela.
+    # Devuelve la función compilada
     def compile(self) -> Function:
         while not self._is_at_end():
             self.statement()
+
+        # Antes del return final, nos aseguramos de que
+        # haya un nil en el tope del stack
         self.emit(OpCode.OP_NIL)
         self.emit(OpCode.OP_RETURN)
         return self.function
@@ -153,90 +166,16 @@ class Compiler:
     def block_statement(self):
         self.context.begin_scope()
         self.block()
-        vars_removed = self.context.end_scope()
-        for _ in range(vars_removed):
-            self.emit(OpCode.OP_POP)
 
-    # Parsea una declaración de una función
-    def fun_declaration(self):
-        is_local = self.context.scope_depth > 0
-
-        if not self._match(TokenType.IDENTIFIER):
-            raise SyntaxError("Expected function name after `fun`")
-
-        fun_name = self._previous()
-
-        if is_local:
-            for local in reversed(self.context.locals):
-                if local.initialized and local.depth < self.context.scope_depth:
-                    break
-
-                if local.name == fun_name.lexeme:
-                    raise SyntaxError(f"Function {fun_name.lexeme} already exists")
-
-            self.context.declare(fun_name.lexeme)
-            self.context.mark_initialized()
-
-        compiler = Compiler(self.tokens, enclosing=self)
-        compiler.current = self.current
-        compiler.function = Function(fun_name.lexeme)
-        compiler.context = CompilerContext()
-        compiler.context.begin_scope()
-
-        if not compiler._match(TokenType.LEFT_PAREN):
-            raise SyntaxError(f"Expected '(' after function name '{fun_name}'")
-
-        while (
-            not compiler._is_at_end()
-            and not compiler._lookahead().token_type == TokenType.RIGHT_PAREN
-        ):
-            if not compiler._match(TokenType.IDENTIFIER):
-                raise SyntaxError("Expected parameter name")
-
-            param_name = compiler._previous()
-            compiler.context.declare(param_name.lexeme)
-            compiler.context.mark_initialized()
-            compiler.function.arity += 1
-
-            if not compiler._match(TokenType.COMMA):
-                break
-
-        if not compiler._match(TokenType.RIGHT_PAREN):
-            raise SyntaxError("Expected ')' after parameters")
-
-        if not compiler._match(TokenType.LEFT_BRACE):
-            raise SyntaxError("Expected '{{' before function body")
-
-        compiler.block()
-        compiler.emit(OpCode.OP_NIL)
-        compiler.emit(OpCode.OP_RETURN)
-
-        compiled_function = compiler.function
-
-        self.current = compiler.current
-
-        fun_index = self.chunk.add_constant(compiled_function)
-        self.emit(OpCode.OP_CLOSURE, fun_index)
-
-        for upvalue in compiler.context.upvalues:
-            self.emit(1 if upvalue.is_local else 0, upvalue.index)
-
-        if not is_local:
-            fun_index = self.chunk.add_constant(fun_name.lexeme)
-            self.emit(OpCode.OP_DEFINE_GLOBAL, fun_index)
-
-    def return_statement(self):
-        if not self.enclosing:
-            raise SyntaxError("Cant return from toplevel")
-
-        if self._match(TokenType.SEMICOLON):
-            self.emit(OpCode.OP_NIL)
-        else:
-            self.expression()
-            if not self._match(TokenType.SEMICOLON):
-                raise SyntaxError("Expected ; after return")
-
-        self.emit(OpCode.OP_RETURN)
+        # Ahora que termino el bloque de código,
+        # las variables no capturadas son popeadas,
+        # y las variables capturadas son cerradas
+        removed_locals = self.context.end_scope()
+        for local in removed_locals:
+            if local.is_captured:
+                self.emit(OpCode.OP_CLOSE_UPVALUE)
+            else:
+                self.emit(OpCode.OP_POP)
 
     # Parsea una declaración de variable
     def var_declaration(self):
@@ -286,6 +225,122 @@ class Compiler:
             # En una variable global tenemos que emitir las instrucciones
             # para que se resuelva el binding en runtime
             self.emit(OpCode.OP_DEFINE_GLOBAL, var_index)
+
+    # Parsea una declaración de una función
+    def fun_declaration(self):
+        # El parseo del identificador y declaración de la variable local
+        # es como una variable normal
+        is_local = self.context.scope_depth > 0
+
+        if not self._match(TokenType.IDENTIFIER):
+            raise SyntaxError("Expected function name after `fun`")
+
+        fun_name = self._previous()
+
+        if is_local:
+            for local in reversed(self.context.locals):
+                if local.initialized and local.depth < self.context.scope_depth:
+                    break
+
+                if local.name == fun_name.lexeme:
+                    raise SyntaxError(f"Function {fun_name.lexeme} already exists")
+
+            self.context.declare(fun_name.lexeme)
+            self.context.mark_initialized()
+
+        # Acá empieza la compilación de la función en sí
+        # Primero se crea un compilador nuevo, y se le pasa de compilador padre al actual.
+        # Se mantienen los tokens y el current de siempre, pero lo demas se pisa.
+        compiler = Compiler(self.tokens, fun_name.lexeme, enclosing=self)
+        compiler.current = self.current
+
+        # Arranca un scope nuevo para esta función
+        compiler.context.begin_scope()
+
+        if not compiler._match(TokenType.LEFT_PAREN):
+            raise SyntaxError(
+                f"Expected '(' after function name, got `{self._lookahead()}` instead"
+            )
+
+        # Parseo de los argumentos (una seguidilla de identificadores separados por coma)
+        while (
+            not compiler._is_at_end()
+            and not compiler._lookahead().token_type == TokenType.RIGHT_PAREN
+        ):
+            if not compiler._match(TokenType.IDENTIFIER):
+                raise SyntaxError(
+                    f"Expected parameter name, got `{self._lookahead()}` instead"
+                )
+
+            param_name = compiler._previous()
+            compiler.context.declare(param_name.lexeme)
+            compiler.context.mark_initialized()
+            compiler.function.arity += 1
+
+            if not compiler._match(TokenType.COMMA):
+                break
+
+        if not compiler._match(TokenType.RIGHT_PAREN):
+            raise SyntaxError(
+                f"Expected ')' after function parameters, got `{self._lookahead()}` instead"
+            )
+
+        if not compiler._match(TokenType.LEFT_BRACE):
+            raise SyntaxError(
+                f"Expected '{{' after function parameters, got `{self._lookahead()}` instead"
+            )
+
+        # Parseo del cuerpo
+        compiler.block()
+
+        # Ahora que termino el bloque de código,
+        # las variables no capturadas son popeadas,
+        # y las variables capturadas son cerradas
+        removed_locals = compiler.context.end_scope()
+        for local in removed_locals:
+            if local.is_captured:
+                compiler.emit(OpCode.OP_CLOSE_UPVALUE)
+            else:
+                compiler.emit(OpCode.OP_POP)
+
+        # Como failsafe, si la función no compiló un return, le agregamos uno.
+        # Si ya había un return, este nunca se va a ejecutar
+        compiler.emit(OpCode.OP_NIL)
+        compiler.emit(OpCode.OP_RETURN)
+
+        # Nos salteamos todos los tokens que ya compilamos en la función
+        self.current = compiler.current
+
+        # Agregamos la función compilada al pool de constantes
+        fun_index = self.chunk.add_constant(compiler.function)
+
+        # Emitimos un OP_CLOSURE, que tiene como operandos a la función,
+        # seguida de todos los upvalues que utilizará
+        self.emit(OpCode.OP_CLOSURE, fun_index)
+        for upvalue in compiler.context.upvalues:
+            self.emit(1 if upvalue.is_local else 0, upvalue.index)
+
+        # Si estamos en el scope global, definimos la función como una variable global
+        if not is_local:
+            fun_index = self.chunk.add_constant(fun_name.lexeme)
+            self.emit(OpCode.OP_DEFINE_GLOBAL, fun_index)
+
+    # Parsea un return statement
+    # Es solamente parsear una expresión para que quede en el tope del stack,
+    # y después la intrucción de return se encarga de usarla
+    def return_statement(self):
+        # `return;` equivale a `return nil;`
+        if self._match(TokenType.SEMICOLON):
+            self.emit(OpCode.OP_NIL)
+
+        else:
+            self.expression()
+            if not self._match(TokenType.SEMICOLON):
+                raise SyntaxError(
+                    f"Expected ';' after return statement, got `{self._lookahead()}` instead"
+                )
+
+        self.emit(OpCode.OP_RETURN)
 
     # Parsea un if
     def if_statement(self):
@@ -447,9 +502,15 @@ class Compiler:
             self.patch_jump(exit_jump)
             self.emit(OpCode.OP_POP)
 
-        self.context.end_scope()
-        # Tenemos que sacar del stack la variable removida
-        self.emit(OpCode.OP_POP)
+        # Ahora que termino el bloque de código,
+        # las variables no capturadas son popeadas,
+        # y las variables capturadas son cerradas
+        removed_locals = self.context.end_scope()
+        for local in removed_locals:
+            if local.is_captured:
+                self.emit(OpCode.OP_CLOSE_UPVALUE)
+            else:
+                self.emit(OpCode.OP_POP)
 
     # ---------- Utils ---------- #
 
@@ -486,30 +547,38 @@ class Compiler:
         # una variable resuelta en runtime. AKA: una variable global
         return None
 
+    # Busca una variable en los enclosings y devuelve el índice del upvalue
+    # Si esta en el enclosing actual, entonces es una variable "local",
+    # (ojo! local desde el POV del enclosing, no del actual)
+    # y si no, la sigue buscando para arriba hasta encontrarla.
     def resolve_upvalue(self, var_name):
         if self.enclosing is None:
             return None
 
+        # La buscamos localmente dentro del enclosing
         local = self.enclosing.resolve_local(var_name)
         if local is not None:
+            # La marcamos como capturada en el enclosing,
+            # para que no se remueva cuando la función termine
+            self.enclosing.context.locals[local].is_captured = True
             return self.add_upvalue(local, is_local=True)
 
+        # La buscamos como upvalue en el enclosing, recursivamente
         upvalue = self.enclosing.resolve_upvalue(var_name)
         if upvalue is not None:
             return self.add_upvalue(upvalue, is_local=False)
 
         return None
 
-    def add_upvalue(self, index: int, is_local: bool) -> int:
-        upvalue_count = len(self.context.upvalues)
-
+    # Si la variable ya existe, no hace falta re-agregarla: devuelve el índice existente.
+    # Si no, la agrega a la lista de upvalues y devuelve su nuevo índice.
+    def add_upvalue(self, index: int, is_local: bool):
         for i, upvalue in enumerate(self.context.upvalues):
             if upvalue.index == index and upvalue.is_local == is_local:
                 return i
 
-        self.context.upvalues.append(Upvalue(index, is_local))
-        self.function.upvalue_count = len(self.context.upvalues)
-        return upvalue_count
+        self.function.upvalue_count += 1
+        return self.context.add_upvalue(index, is_local)
 
     # Para emitir a donde se hace el salto, primero dejamos unos bytes vacios
     # en su lugar y cuando sepamos el valor volvemos a ponerlo
@@ -736,9 +805,12 @@ class Compiler:
         var_name = self._previous()
 
         # el operador de la instrucción (`arg`) depende de si
-        # la variable es local o global
+        # la variable es local o global, o upvalue
         # - en una variable local, es el índice sobre el stack de la VM,
         # para poder acceder directamente al valor
+        # - en un upvalue, si es una variable local del padre, es el índice
+        # del stack del padre, y si es un upvalue del padre, entonces
+        # es el índice sobre la lista de upvalues del padre
         # - en una variable global, es el indice sobre el pool de constantes
         # lo cual me va a referenciar al nombre de la variable, y con eso
         # poder pedirle el valor a la tabla de globales
@@ -764,6 +836,7 @@ class Compiler:
             # y tengo que emitir una instrucción de get
             self.emit(get_op, arg)
 
+    # Parsea una invocación de una función
     def call(self, _=None):
         args_count = 0
 
@@ -778,8 +851,11 @@ class Compiler:
                 break
 
         if not self._match(TokenType.RIGHT_PAREN):
-            raise SyntaxError("Expected ')' after arguments")
+            raise SyntaxError(
+                f"Expected ')' after function arguments, got `{self._lookahead()}` instead"
+            )
 
+        # Emite la instrucción de llamada con la cantidad de argumentos
         self.emit(OpCode.OP_CALL, args_count)
 
     # ---------- Helpers ---------- #
