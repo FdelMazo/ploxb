@@ -29,9 +29,9 @@ class Function:
     def dis(self):
         if not self.name:
             print(colored("== COMPILETIME ==", "light_green"))
-            print(colored("==SCRIPT==", "light_green"))
+            print(colored("= SCRIPT =", "light_green"))
         else:
-            print(colored(f"==FUNCTION {self.name}==", "light_green"))
+            print(colored(f"= FUNCTION {self.name} =", "light_green"))
         self.chunk.dis()
         for c in self.chunk.constants:
             if isinstance(c, Function):
