@@ -856,6 +856,7 @@ class Compiler:
             )
 
         # Emite la instrucción de llamada con la cantidad de argumentos
+        # Probar que sucede si args_count es 257
         self.emit(OpCode.OP_CALL, args_count)
 
     # ---------- Helpers ---------- #
