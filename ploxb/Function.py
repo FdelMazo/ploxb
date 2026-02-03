@@ -69,11 +69,14 @@ class Closure:
         return str(self.function)
 
 
-# Las variables ya no tienen un valor absoluto dentro del stack de la VM,
-# pero sí un índice relativo al comienzo de la función actual.
+# Las variables locales ya no tienen un valor absoluto dentro del stack de la VM.
+# Al llamar a una función, las variables locales que se instancien ahí van a estar
+# en una posición relativa al tope del stack que existía al momento de la llamada.
 # Con un callframe podemos encapsular cada invocación de una función,
-# guardandonos una referencia al slot en el que comienza, para que cada
+# guardandonos una referencia al tope que existía en ese momento, para que cada
 # vez que referenciemos una variable local, lo utilicemos en la resolución
+# También, en vez de que la VM lleve registro del IP, cada callframe lo tiene
+# dentro, para que al retornar de una función podamos resumir desde el IP del callframe
 class CallFrame:
     def __init__(self, closure: Closure, stack_slot: int):
         self.closure = closure

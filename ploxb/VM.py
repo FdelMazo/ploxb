@@ -67,9 +67,8 @@ class VM:
     def run(self, function: Function, debug=False):
         # Lo primero que hacemos en la ejecución es crear el
         # primer call frame, el del main script, apuntando al
-        # índice 0 del stack, donde vive el clojure del main script
+        # comienzo del stack
         main_script = Closure(function)
-        self.push(main_script)
         self.frames.append(CallFrame(main_script, 0))
 
         if debug:
@@ -109,13 +108,10 @@ class VM:
                     finished_frame = self.frames.pop()
 
                     # Cerramos todos los upvalues que hayan quedado abiertos en este frame
-                    self.close_upvalues(finished_frame.stack_slot)
+                    self.close_upvalues(finished_frame.stack_slot - 1)
 
                     # Si me quedé sin frames, estoy en el final de la ejecución
                     if not self.frames:
-                        # Popeo el último valor del stack (el closure del main script)
-                        self.pop()
-
                         # El stack me debería haber quedado vacío al finalizar la ejecución
                         if len(self.stack):
                             raise RuntimeError(
@@ -136,7 +132,10 @@ class VM:
 
                     # Reseteamos el stack a como estaba antes de llamar a la función
                     # y pusheamos el resultado de la función al nuevo tope
-                    self.stack = self.stack[: finished_frame.stack_slot]
+                    # El -1 es porque el closure mismo también esta en el stack, porque
+                    # el nombre fue resuelto y pusheado al iniciar la llamada
+                    self.stack = self.stack[: finished_frame.stack_slot - 1]
+
                     self.push(result)
 
                     if debug:
@@ -346,7 +345,7 @@ class VM:
                         )
 
                     # Ahora que llamamos a una función, nos adentramos en un nuevo callframe
-                    fn_ip = len(self.stack) - arg_count - 1
+                    fn_ip = len(self.stack) - arg_count
                     fn_callframe = CallFrame(closure, fn_ip)
 
                     # Con solo ponerlo en el tope de la pila, ya pasa a ser nuestro frame actual

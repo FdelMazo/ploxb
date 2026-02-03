@@ -45,12 +45,6 @@ class CompilerContext:
         # son referenciados en la función
         self.upvalues: list[Upvalue] = []
 
-        # Reservamos siempre el slot 0 de las variables locales
-        # para el valor "self" de la función, para tener un puntero
-        # referencia desde el cual acceder a las variables locales
-        self.declare("")
-        self.mark_initialized()
-
     def begin_scope(self):
         self.scope_depth += 1
 
