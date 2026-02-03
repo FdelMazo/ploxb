@@ -32,6 +32,8 @@ class OpCode(IntEnum):
     OP_EQUAL = auto()
     OP_GREATER = auto()
     OP_LESS = auto()
+    # No requiere operando, cierra el upvalue en el tope del stack
+    OP_CLOSE_UPVALUE = auto()
 
     # Instrucciones con operandos: valores
     # después del opcode, hay un byte que es directamente un número
@@ -53,7 +55,6 @@ class OpCode(IntEnum):
     OP_SET_LOCAL = auto()
     OP_GET_UPVALUE = auto()
     OP_SET_UPVALUE = auto()
-    OP_CLOSE_UPVALUE = auto()
 
     # Instrucciones con operandos variables: funciones con sus upvalues
     # después del opcode, el primer byte es el índice de la función en el pool de constantes
@@ -135,7 +136,6 @@ class Chunk:
                     | OpCode.OP_SET_LOCAL
                     | OpCode.OP_GET_UPVALUE
                     | OpCode.OP_SET_UPVALUE
-                    | OpCode.OP_CLOSE_UPVALUE
                 ):
                     # Instrucciones con operandos: slots
                     var_index = self.bytes[i + 1]
