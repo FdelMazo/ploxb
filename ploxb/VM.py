@@ -122,6 +122,12 @@ class VM:
                                 "Inconsistent Stack Height: should be empty at exit"
                             )
 
+                        # Los open upvalues también deberían estar vacíos
+                        if len(self.open_upvalues):
+                            raise RuntimeError(
+                                "Inconsistent VM state: unclosed upvalues at exit"
+                            )
+
                         if debug:
                             print(colored("THE END", "light_blue"))
 
