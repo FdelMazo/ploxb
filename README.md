@@ -26,3 +26,12 @@ En cada branch del repo hay distintas implementaciones de Lox:
 
 - `main` -> Versión sin funciones, con lo visto hasta el capítulo 23 del libro. Al no incluir funciones ni closures, es más facil de comprender.
 - `fns-and-closures` -> Lo que hay en `main` más lo visto en el capítulo 24 y 25 del libro, que complejiza un poco el modelo original.
+- `to-x86` -> Un experimento para comparar nuestro bytecode contra assembly
+
+---
+
+Un par de comandos para poder jugar un poco y comparar bytecode vs assembly
+
+- `ploxb ./examples/bench.lox --to-bytecode bench.loxb` -> compila a bytecode y se lo guarda en un archivo que puede leer la VM
+- `ploxb --run-bytecode bench.loxb` -> ejecuta un archivo de bytecode compilado
+- `ploxb ./examples/bench.lox --to-x86 bench.s` -> compila a assembly x86, que puede ser pasado a binario con `gcc -no-pie bench.s -o bench.out` y después ejecutado con `./bench.out`
