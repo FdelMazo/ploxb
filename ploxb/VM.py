@@ -173,6 +173,15 @@ class VM:
                         continue
                     else:
                         print(self.pop())
+                case OpCode.OP_PRINT_DEC:
+                    dec = int(str(self.pop()), 2)
+                    if debug:
+                        print(
+                            colored(f"SCREEN OUTPUT {dec}", "light_magenta"),
+                        )
+                        continue
+                    else:
+                        print(dec)
 
                 # Instrucción de pop
                 # solamente descartar el tope del stack

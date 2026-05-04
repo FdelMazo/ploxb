@@ -113,6 +113,8 @@ class Compiler:
             self.for_statement()
         elif self._match(TokenType.LEFT_BRACE):
             self.block_statement()
+        elif self._match(TokenType.HARDCODED_DECIMAL_FUNCTION):
+            self.hardcoded_decimal_function()
         else:
             self.expression_statement()
 
@@ -136,6 +138,16 @@ class Compiler:
             )
 
         self.emit(OpCode.OP_PRINT)
+
+    # Parsea un hardcoded decimal function
+    def hardcoded_decimal_function(self):
+        self.expression()
+        if not self._match(TokenType.SEMICOLON):
+            raise SyntaxError(
+                f"Expected ';' after value to dec, got `{self._lookahead()}` instead"
+            )
+
+        self.emit(OpCode.OP_PRINT_DEC)
 
     # Parsea un bloque y maneja su scope
     def block_statement(self):

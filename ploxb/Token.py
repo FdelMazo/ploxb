@@ -50,6 +50,9 @@ class TokenType(Enum):
     VAR = auto()
     WHILE = auto()
 
+    # similar al print, nos hardcodeamos un binary to decimal fn
+    HARDCODED_DECIMAL_FUNCTION = auto()
+
     # fin de archivo
     EOF = auto()
 
@@ -97,4 +100,5 @@ TokenKeywords = {
     "true": TokenType.TRUE,
     "var": TokenType.VAR,
     "while": TokenType.WHILE,
+    "dec": TokenType.HARDCODED_DECIMAL_FUNCTION,
 }

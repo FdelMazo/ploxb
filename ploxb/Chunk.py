@@ -10,6 +10,8 @@ ConstantType = Union[str, float]
 
 
 class OpCode(IntEnum):
+    # auto(): arranca en 1 y asigna un valor incremental a cada miembro
+
     # Instrucciones sin operandos:
     # operan directamente sobre el tope del stack de la máquina virtual.
     OP_NIL = auto()
@@ -28,6 +30,7 @@ class OpCode(IntEnum):
     OP_EQUAL = auto()
     OP_GREATER = auto()
     OP_LESS = auto()
+    OP_PRINT_DEC = auto()
 
     # Instrucciones con operandos: constantes
     # después del opcode, hay un byte que es el índice de la constante referenciada
@@ -78,6 +81,10 @@ class Chunk:
     # para imprimirlo en un formato legible (el nombre de las instrucciones)
     # (es la operación inversa a ensamblar instrucciones assembly a código máquina)
     def dis(self):
+        print(colored("== RAW BYTES ==", "light_green"))
+        print(colored(" ".join(f"{b:08b}" for b in self.bytes), "light_blue"))
+        print()
+
         print(colored("== COMPILETIME ==", "light_green"))
         i = 0
         while i < len(self.bytes):
