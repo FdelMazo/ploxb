@@ -50,7 +50,7 @@ class Closure:
         # - Abierta: si la función que instanció la variable sigue en ejecución, la variable sigue viviendo en el stack, por lo
         # que nos tenemos que guardar el índice para accederla, en `stack_index`
         # - Cerrada: Si la función original terminó su ejecución, necesitamos seguir teniendo acceso al valor, por lo que
-        # la variable se guarda internamente (una suerte de heap)
+        # la variable se guarda internamente
 
         def __init__(self, stack_index: int | None):
             # Si la variable esta abierta -> tiene stack_index
