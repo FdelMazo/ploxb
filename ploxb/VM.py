@@ -141,7 +141,7 @@ class VM:
                     if debug:
                         print(
                             colored(
-                                f"EXITING CALLFRAME {finished_frame.closure.function}",
+                                f"EXITING CALLFRAME {finished_frame.closure.function.name}()",
                                 "light_magenta",
                             )
                         )
@@ -354,7 +354,7 @@ class VM:
                     if debug:
                         print(
                             colored(
-                                f"ENTERING CALLFRAME {closure.function}",
+                                f"ENTERING CALLFRAME {closure.function.name}()",
                                 "light_magenta",
                             )
                         )

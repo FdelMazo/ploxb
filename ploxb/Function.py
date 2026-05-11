@@ -66,7 +66,7 @@ class Closure:
         self.upvalues: list["Closure.Capture"] = []
 
     def __repr__(self):
-        return str(self.function)
+        return f"<cls {self.function.name}()>"
 
 
 # Las variables locales ya no tienen un valor absoluto dentro del stack de la VM.
