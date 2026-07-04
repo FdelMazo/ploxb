@@ -79,9 +79,6 @@ class VM:
                 print(colored(f"{debug_prefix}|", "light_blue"), end=" ")
 
             byte = READ()
-            # TODO: creo que este match esta haciendo muchisimo heavy lifting
-            # con overhead. si lo cambio a un dispatch table tal vez va
-            # más rápido?
             match byte:
                 # Retorno de un callframe
                 case OpCode.OP_RETURN:
