@@ -10,6 +10,10 @@ StackValueType = Union[str, float, bool, Closure, None]
 
 class VM:
     def __init__(self):
+        # El instruction pointer
+        # siempre apunta a la siguiente instrucción a ejecutar
+        self.ip = 0
+
         # A medida que se van llamando funciones, se van apilando
         # callframes acá, lo cual sirve para que al retornar de una función
         # sepamos a dónde volver
@@ -26,25 +30,6 @@ class VM:
         # Variables locales que fueron capturadas por closures y siguen abiertas
         # (o sea, por ahora pueden ser accedidas desde el stack)
         self.open_upvalues: list = []
-
-    # El frame actual es el tope de la pila de callframes
-    @property
-    def current_frame(self):
-        return self.frames[-1] if self.frames else None
-
-    # Devuelve el ip del frame actual
-    @property
-    def ip(self):
-        if not self.current_frame:
-            raise RuntimeError("DETACHED VM")
-        return self.current_frame.ip
-
-    # Setea el ip del frame actual
-    @ip.setter
-    def ip(self, new_ip):
-        if not self.current_frame:
-            raise RuntimeError("DETACHED VM")
-        self.current_frame.ip = new_ip
 
     def push(self, value: StackValueType):
         # Agrega un resultado al tope del stack
@@ -69,26 +54,26 @@ class VM:
         # primer call frame, el del main script, apuntando al
         # comienzo del stack
         main_script = Closure(function)
-        self.frames.append(CallFrame(main_script, 0))
+        current_frame = CallFrame(main_script, 0)
+        self.frames.append(current_frame)
+        chunk = current_frame.closure.function.chunk
+
+        # Cada vez que consumo un byte tengo que avanzar mi ip
+        def READ():
+            byte = chunk.bytes[self.ip]
+            self.ip += 1
+            return byte
+
+        # Consumir una WORD es consumir dos bytes
+        # (lo hacemos en big-endian)
+        def READ_WORD():
+            highbyte, lowbyte = READ(), READ()
+            return (highbyte << 8) | lowbyte
 
         if debug:
             print(colored("== RUNTIME ==", "light_green"))
 
         while self.frames:
-            chunk = self.current_frame.closure.function.chunk
-
-            # Cada vez que consumo un byte tengo que avanzar mi ip
-            def READ():
-                byte = chunk.bytes[self.ip]
-                self.ip += 1
-                return byte
-
-            # Consumir una WORD es consumir dos bytes
-            # (lo hacemos en big-endian)
-            def READ_WORD():
-                highbyte, lowbyte = READ(), READ()
-                return (highbyte << 8) | lowbyte
-
             debug_prefix = f"{'+' * (len(self.frames) - 1)}{self.ip:04d}"
             if debug:
                 print(colored(f"{debug_prefix}|", "light_blue"), end=" ")
@@ -135,6 +120,11 @@ class VM:
                     # El -1 es porque el closure mismo también esta en el stack, porque
                     # el nombre fue resuelto y pusheado al iniciar la llamada
                     self.stack = self.stack[: finished_frame.stack_slot - 1]
+                    # También reseteamos nuestras variables locales (el frame actual,
+                    # hacer que el chunk apunte a ese, y hacer que el ip siga desde donde estaba)
+                    current_frame = self.frames[-1]
+                    chunk = current_frame.closure.function.chunk
+                    self.ip = current_frame.ip
 
                     self.push(result)
 
@@ -299,14 +289,14 @@ class VM:
                     slot = READ()
                     # Ahora, el valor de las variables se va a buscar en el stack
                     # relativo al puntero base del callframe actual
-                    self.stack[self.current_frame.stack_slot + slot] = self.peek()
+                    self.stack[current_frame.stack_slot + slot] = self.peek()
 
                 # Obtener el valor es solamente re-pushearlo al stack desde su slot
                 # indicado, al tope
                 case OpCode.OP_GET_LOCAL:
                     slot = READ()
                     # Al igual que en SET_LOCAL, el índice es relativo al frame actual
-                    var_value = self.stack[self.current_frame.stack_slot + slot]
+                    var_value = self.stack[current_frame.stack_slot + slot]
                     self.push(var_value)
 
                 # Instrucciones de saltos
@@ -348,8 +338,14 @@ class VM:
                     fn_ip = len(self.stack) - arg_count
                     fn_callframe = CallFrame(closure, fn_ip)
 
-                    # Con solo ponerlo en el tope de la pila, ya pasa a ser nuestro frame actual
+                    # Guardamos dónde estábamos en el frame que llama, antes de saltar
+                    current_frame.ip = self.ip
+
+                    # Lo ponemos en el tope de la pila y actualizamos nuestras variables locales
                     self.frames.append(fn_callframe)
+                    current_frame = fn_callframe
+                    chunk = current_frame.closure.function.chunk
+                    self.ip = 0
 
                     if debug:
                         print(
@@ -384,11 +380,11 @@ class VM:
                         is_local, slot = READ() == 1, READ()
                         if is_local:
                             # Si es local en el padre, la capturamos desde su valor en el stack
-                            stack_index = self.current_frame.stack_slot + slot
+                            stack_index = current_frame.stack_slot + slot
                             upvalue = self.capture_upvalue(stack_index)
                         else:
                             # Si es un upvalue, lo tomamos de la lista de upvalues del closure padre
-                            upvalue = self.current_frame.closure.upvalues[slot]
+                            upvalue = current_frame.closure.upvalues[slot]
 
                         # Una vez que tenemos el upvalue, lo agregamos al nuevo closure
                         closure.upvalues.append(upvalue)
@@ -399,7 +395,7 @@ class VM:
                     # Toma el slot del upvalue, busca el valor en la lista de
                     # upvalues y lo pushea al stack
                     slot = READ()
-                    upvalue = self.current_frame.closure.upvalues[slot]
+                    upvalue = current_frame.closure.upvalues[slot]
 
                     # Si la variable ya esta cerrada, tomamos el valor que esta
                     # guardado internamente.
@@ -413,7 +409,7 @@ class VM:
                     # Toma el slot del upvalue, busca el valor en la lista de
                     # upvalues y lo pushea al stack
                     slot = READ()
-                    upvalue = self.current_frame.closure.upvalues[slot]
+                    upvalue = current_frame.closure.upvalues[slot]
 
                     # El mismo juego que en el getter
                     if upvalue.closed_value is not None:
