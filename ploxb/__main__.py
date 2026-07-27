@@ -44,6 +44,7 @@ class Ploxb:
             print()
 
         try:
+            self.vm.ip = 0
             self.vm.run(main_function, debug)
         except Exception as e:
             if debug:
