@@ -6,6 +6,9 @@ from termcolor import colored
 # Los valores que pueden almacenarse en el stack
 StackValueType = Union[str, float, bool, None]
 
+# Sentinela para indicarle al loop principal que corte la ejecución
+_HALT = object()
+
 
 class VM:
     def __init__(self):
@@ -52,6 +55,188 @@ class VM:
             highbyte, lowbyte = READ(), READ()
             return (highbyte << 8) | lowbyte
 
+        # ---------- Handlers de cada instrucción ---------- #
+        def op_return():
+            if debug:
+                print(colored("THE END", "light_blue"))
+            if len(self.stack):
+                raise RuntimeError(
+                    "Inconsistent Stack Height: should be empty at exit"
+                )
+            return _HALT
+
+        def op_constant():
+            constant_index = READ()
+            self.push(chunk.constants[constant_index])
+
+        def op_nil():
+            self.push(None)
+
+        def op_true():
+            self.push(True)
+
+        def op_false():
+            self.push(False)
+
+        def op_not():
+            self.push(not self.is_truthy(self.pop()))
+
+        def op_negate():
+            if not self.is_number(self.peek()):
+                raise RuntimeError(
+                    f"Operand of OP_NEGATE must be a number, got: `{self.peek()}`"
+                )
+            self.push(-self.pop())
+
+        def op_add():
+            b, a = self.pop(), self.pop()
+            if not self.is_number(a, b) and not self.is_string(a, b):
+                raise RuntimeError(
+                    f"Operands of OP_ADD must be numbers or strings, got: `{a}, {b}`"
+                )
+            self.push(a + b)
+
+        def op_subtract():
+            b, a = self.pop(), self.pop()
+            if not self.is_number(a, b):
+                raise RuntimeError(
+                    f"Operands of OP_SUBTRACT must be numbers, got: `{a}, {b}`"
+                )
+            self.push(a - b)
+
+        def op_multiply():
+            b, a = self.pop(), self.pop()
+            if not self.is_number(a, b):
+                raise RuntimeError(
+                    f"Operands of OP_MULTIPLY must be numbers, got: `{a}, {b}`"
+                )
+            self.push(a * b)
+
+        def op_divide():
+            b, a = self.pop(), self.pop()
+            if not self.is_number(a, b):
+                raise RuntimeError(
+                    f"Operands of OP_DIVIDE must be numbers, got: `{a}, {b}`"
+                )
+            self.push(a / b)
+
+        def op_modulo():
+            b, a = self.pop(), self.pop()
+            if not self.is_number(a, b):
+                raise RuntimeError(
+                    f"Operands of OP_MODULO must be numbers, got: `{a}, {b}`"
+                )
+            self.push(a % b)
+
+        def op_equal():
+            b, a = self.pop(), self.pop()
+            self.push(a == b)
+
+        def op_greater():
+            b, a = self.pop(), self.pop()
+            if not self.is_number(a, b):
+                raise RuntimeError(
+                    f"Operands of OP_GREATER must be numbers, got: `{a} - {b}`"
+                )
+            self.push(a > b)
+
+        def op_less():
+            b, a = self.pop(), self.pop()
+            if not self.is_number(a, b):
+                raise RuntimeError(
+                    f"Operands of OP_LESS must be numbers, got: `{a} - {b}`"
+                )
+            self.push(a < b)
+
+        def op_print():
+            val = self.pop()
+            if debug:
+                return
+            print(val)
+
+        def op_print_dec():
+            dec = int(str(self.pop()), 2)
+            if debug:
+                return
+            print(dec)
+
+        def op_pop():
+            self.pop()
+
+        def op_define_global():
+            var_index = READ()
+            var_name = chunk.constants[var_index]
+
+            self.globals[str(var_name)] = self.pop()
+
+        def op_set_global():
+            var_index = READ()
+            var_name = chunk.constants[var_index]
+
+            if var_name not in self.globals:
+                raise RuntimeError(f"Undefined variable '{var_name}'")
+
+            self.globals[str(var_name)] = self.peek()
+
+        def op_get_global():
+            var_index = READ()
+            var_name = chunk.constants[var_index]
+
+            if var_name not in self.globals:
+                raise RuntimeError(f"Undefined variable '{var_name}'")
+
+            self.push(self.globals[str(var_name)])
+
+        def op_set_local():
+            slot = READ()
+            self.stack[slot] = self.peek()
+
+        def op_get_local():
+            slot = READ()
+            self.push(self.stack[slot])
+
+        def op_jump():
+            offset = READ_WORD()
+            self.ip += offset
+
+        def op_jump_if_false():
+            offset = READ_WORD()
+            is_falsey = not self.is_truthy(self.peek())
+            self.ip += offset * is_falsey
+
+        def op_loop():
+            offset = READ_WORD()
+            self.ip -= offset
+
+        dispatch = {
+            OpCode.OP_RETURN: op_return,
+            OpCode.OP_CONSTANT: op_constant,
+            OpCode.OP_NIL: op_nil,
+            OpCode.OP_TRUE: op_true,
+            OpCode.OP_FALSE: op_false,
+            OpCode.OP_NOT: op_not,
+            OpCode.OP_NEGATE: op_negate,
+            OpCode.OP_ADD: op_add,
+            OpCode.OP_SUBTRACT: op_subtract,
+            OpCode.OP_MULTIPLY: op_multiply,
+            OpCode.OP_DIVIDE: op_divide,
+            OpCode.OP_MODULO: op_modulo,
+            OpCode.OP_EQUAL: op_equal,
+            OpCode.OP_GREATER: op_greater,
+            OpCode.OP_LESS: op_less,
+            OpCode.OP_PRINT: op_print,
+            OpCode.OP_PRINT_DEC: op_print_dec,
+            OpCode.OP_POP: op_pop,
+            OpCode.OP_DEFINE_GLOBAL: op_define_global,
+            OpCode.OP_SET_GLOBAL: op_set_global,
+            OpCode.OP_GET_GLOBAL: op_get_global,
+            OpCode.OP_SET_LOCAL: op_set_local,
+            OpCode.OP_GET_LOCAL: op_get_local,
+            OpCode.OP_JUMP: op_jump,
+            OpCode.OP_JUMP_IF_FALSE: op_jump_if_false,
+            OpCode.OP_LOOP: op_loop,
+        }
+
         if debug:
             print(colored("== RUNTIME ==", "light_green"))
 
@@ -61,202 +246,13 @@ class VM:
                 print(colored(f"{debug_prefix}|", "light_blue"), end=" ")
 
             byte = READ()
-            match byte:
-                # Final de la ejecución
-                case OpCode.OP_RETURN:
-                    if debug:
-                        print(colored("THE END", "light_blue"))
-                    if len(self.stack):
-                        raise RuntimeError(
-                            "Inconsistent Stack Height: should be empty at exit"
-                        )
-                    return
+            handler = dispatch.get(byte)
+            if handler is None:
+                raise RuntimeError(f"UNKNOWN {byte}")
 
-                # Instrucción de constante
-                case OpCode.OP_CONSTANT:
-                    # La instrucción de constante es "cargar" la constante en memoria:
-                    # es solamente buscar el resultado en el pool de constantes del chunk
-                    # y pushearlo al tope del stack
-                    constant_index = READ()
-                    constant_value = chunk.constants[constant_index]
-                    self.push(constant_value)
-
-                # Instrucciones de valores literales
-                # Directamente pushean el valor al tope del stack
-                case OpCode.OP_NIL:
-                    self.push(None)
-                case OpCode.OP_TRUE:
-                    self.push(True)
-                case OpCode.OP_FALSE:
-                    self.push(False)
-
-                # Instrucciones unarias
-                # Popean el último valor del stack, hacen la operación,
-                # y pushean el resultado
-                case OpCode.OP_NOT:
-                    value = self.pop()
-                    self.push(not self.is_truthy(value))
-                case OpCode.OP_NEGATE:
-                    if not self.is_number(self.peek()):
-                        raise RuntimeError(
-                            f"Operand of OP_NEGATE must be a number, got: `{self.peek()}`"
-                        )
-                    value = self.pop()
-                    self.push(-value)
-
-                # Instrucciones binarias
-                # Popean los últimos dos valores del stack, hacen la operación,
-                # y pushean el resultado
-                case OpCode.OP_ADD:
-                    b, a = self.pop(), self.pop()
-                    if not self.is_number(a, b) and not self.is_string(a, b):
-                        raise RuntimeError(
-                            f"Operands of OP_ADD must be numbers or strings, got: `{a}, {b}`"
-                        )
-                    self.push(a + b)
-                case OpCode.OP_SUBTRACT:
-                    b, a = self.pop(), self.pop()
-                    if not self.is_number(a, b):
-                        raise RuntimeError(
-                            f"Operands of OP_SUBTRACT must be numbers, got: `{a}, {b}`"
-                        )
-                    self.push(a - b)
-                case OpCode.OP_MULTIPLY:
-                    b, a = self.pop(), self.pop()
-                    if not self.is_number(a, b):
-                        raise RuntimeError(
-                            f"Operands of OP_MULTIPLY must be numbers, got: `{a}, {b}`"
-                        )
-                    self.push(a * b)
-                case OpCode.OP_DIVIDE:
-                    b, a = self.pop(), self.pop()
-                    if not self.is_number(a, b):
-                        raise RuntimeError(
-                            f"Operands of OP_DIVIDE must be numbers, got: `{a}, {b}`"
-                        )
-                    self.push(a / b)
-                case OpCode.OP_MODULO:
-                    b, a = self.pop(), self.pop()
-                    if not self.is_number(a, b):
-                        raise RuntimeError(
-                            f"Operands of OP_MODULO must be numbers, got: `{a}, {b}`"
-                        )
-                    self.push(a % b)
-                case OpCode.OP_EQUAL:
-                    b, a = self.pop(), self.pop()
-                    self.push(a == b)
-                case OpCode.OP_GREATER:
-                    b, a = self.pop(), self.pop()
-                    if not self.is_number(a, b):
-                        raise RuntimeError(
-                            f"Operands of OP_GREATER must be numbers, got: `{a} - {b}`"
-                        )
-                    self.push(a > b)
-                case OpCode.OP_LESS:
-                    b, a = self.pop(), self.pop()
-                    if not self.is_number(a, b):
-                        raise RuntimeError(
-                            f"Operands of OP_LESS must be numbers, got: `{a} - {b}`"
-                        )
-                    self.push(a < b)
-
-                # Instrucción de print
-                # solamente popear el tope del stack y mostrarlo
-                case OpCode.OP_PRINT:
-                    if debug:
-                        print(
-                            colored(f"SCREEN OUTPUT {self.pop()}", "light_magenta"),
-                        )
-                        continue
-                    else:
-                        print(self.pop())
-                case OpCode.OP_PRINT_DEC:
-                    dec = int(str(self.pop()), 2)
-                    if debug:
-                        print(
-                            colored(f"SCREEN OUTPUT {dec}", "light_magenta"),
-                        )
-                        continue
-                    else:
-                        print(dec)
-
-                # Instrucción de pop
-                # solamente descartar el tope del stack
-                case OpCode.OP_POP:
-                    self.pop()
-
-                # Instrucciones de variables globales
-                # Definir una variable es obtener su nombre, su valor
-                # y agregarlo a la tabla
-                case OpCode.OP_DEFINE_GLOBAL:
-                    # El nombre de la variable vive en el pool de constantes
-                    var_index = READ()
-                    var_name = chunk.constants[var_index]
-
-                    # El último valor pusheado al stack es el
-                    # valor de la variable
-                    var_value = self.pop()
-
-                    # Agregamos el binding a nuestra tabla de globales
-                    self.globals[str(var_name)] = var_value
-
-                # Asignar el valor es muy similar, pero no hace el pop final:
-                # como las asignaciones son una expresión que devuelven el valor,
-                # lo dejamos en la pila para que quien venga lo pueda usar
-                case OpCode.OP_SET_GLOBAL:
-                    var_index = READ()
-                    var_name = chunk.constants[var_index]
-
-                    if var_name not in self.globals:
-                        raise RuntimeError(f"Undefined variable '{var_name}'")
-
-                    # peek, no pop!
-                    self.globals[str(var_name)] = self.peek()
-
-                # Obtener el valor es simplemente agarrarlo de la tabla
-                # y pushearlo al tope del stack
-                case OpCode.OP_GET_GLOBAL:
-                    var_index = READ()
-                    var_name = chunk.constants[var_index]
-
-                    if var_name not in self.globals:
-                        raise RuntimeError(f"Undefined variable '{var_name}'")
-
-                    var_value = self.globals[str(var_name)]
-                    self.push(var_value)
-
-                # Instrucciones de variables locales
-                # Una asignación es tomar el tope del stack, que fue
-                # la última expresión resuelta, y asignarla al slot
-                # indicado en el stack (que viene como operando de la instrucción)
-                case OpCode.OP_SET_LOCAL:
-                    slot = READ()
-                    self.stack[slot] = self.peek()
-
-                # Obtener el valor es solamente re-pushearlo al stack desde su slot
-                # indicado, al tope
-                case OpCode.OP_GET_LOCAL:
-                    slot = READ()
-                    var_value = self.stack[slot]
-                    self.push(var_value)
-
-                # Instrucciones de saltos
-                # Salto incondicional
-                case OpCode.OP_JUMP:
-                    offset = READ_WORD()
-                    self.ip += offset
-                # Salto solo si el tope del stack es falso
-                case OpCode.OP_JUMP_IF_FALSE:
-                    offset = READ_WORD()
-                    is_falsey = not self.is_truthy(self.peek())
-                    self.ip += offset * is_falsey
-                # Salta hacia atrás N instrucciones
-                case OpCode.OP_LOOP:
-                    offset = READ_WORD()
-                    self.ip -= offset
-
-                case _:
-                    raise RuntimeError(f"UNKNOWN {byte}")
+            result = handler()
+            if result is _HALT:
+                return
 
             if debug:
                 print(colored(f"STACK {self.stack}", "light_blue"))
